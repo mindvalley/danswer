@@ -7,12 +7,12 @@ from typing import cast
 import uvicorn
 from fastapi import APIRouter
 from fastapi import FastAPI
-from fastapi_health import health
  
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi_health import health
 from httpx_oauth.clients.google import GoogleOAuth2
 from sqlalchemy.orm import Session
 
@@ -347,8 +347,8 @@ def get_application() -> FastAPI:
 
     def healthz_check():
         return True
-    
-    application.add_api_route("/health", health([healthz_check]))
+ 
+    application.add_api_route("/healthz", health([healthz_check]))
 
     application.add_exception_handler(ValueError, value_error_handler)
 
