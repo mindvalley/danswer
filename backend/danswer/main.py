@@ -7,6 +7,10 @@ from typing import cast
 import uvicorn
 from fastapi import APIRouter
 from fastapi import FastAPI
+from fastapi_healthz import (
+    HealthCheckRegistry,
+    health_check_route,
+)
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -341,6 +345,9 @@ def get_application() -> FastAPI:
 
     application.add_exception_handler(
         RequestValidationError, validation_exception_handler
+    )
+
+    application.add_api_route('/healthz', endpoint=health_check_route(registry=_healthChecks)
     )
 
     application.add_exception_handler(ValueError, value_error_handler)
