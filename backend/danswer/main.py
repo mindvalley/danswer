@@ -11,7 +11,6 @@ from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi_health import health
 from httpx_oauth.clients.google import GoogleOAuth2
 from sqlalchemy.orm import Session
 
