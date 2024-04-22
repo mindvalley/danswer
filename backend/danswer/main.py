@@ -351,11 +351,6 @@ def get_application() -> FastAPI:
         RequestValidationError, validation_exception_handler
     )
 
-    def healthz_check():
-        return True
-
-    application.add_api_route("/healthz", health([healthz_check]))
-
     application.add_exception_handler(ValueError, value_error_handler)
 
     application.add_middleware(
