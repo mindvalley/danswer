@@ -81,6 +81,15 @@ nltk.download('stopwords', quiet=True); \
 nltk.download('punkt', quiet=True);"
 # nltk.download('wordnet', quiet=True); introduce this back if lemmatization is needed
 
+# Pre-downloading models for setups with limited egress
+RUN python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('intfloat/e5-base-v2')"
+
+# Pre-downloading NLTK for setups with limited egress
+RUN python -c "import nltk; \
+nltk.download('stopwords', quiet=True); \
+nltk.download('wordnet', quiet=True); \
+nltk.download('punkt', quiet=True);"
+
 # Set up application files
 WORKDIR /app
 

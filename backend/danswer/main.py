@@ -612,6 +612,9 @@ def get_application() -> FastAPI:
     # Ensure all routes have auth enabled or are explicitly marked as public
     check_router_auth(application)
 
+    # Ensure all routes have auth enabled or are explicitly marked as public
+    check_router_auth(application)
+
     return application
 
 
