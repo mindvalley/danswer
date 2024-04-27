@@ -232,7 +232,7 @@ def handle_new_chat_message(
 
     To avoid extra overhead/latency, this assumes (and checks) that previous messages on the path
     have already been set as latest"""
-    logger.info(f"Received new chat message: {chat_message_req.message}")
+    logger.debug(f"Received new chat message: {chat_message_req.message}")
 
     if (
         not chat_message_req.message
@@ -327,7 +327,7 @@ def get_max_document_tokens(
     try:
         persona = get_persona_by_id(
             persona_id=persona_id,
-            user_id=user.id if user else None,
+            user=user,
             db_session=db_session,
         )
     except ValueError:
