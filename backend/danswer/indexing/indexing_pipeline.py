@@ -330,7 +330,7 @@ def index_doc_batch(
         ]
 
         logger.debug(
-            f"Indexing the following chunks: {[chunk.to_short_descriptor() for chunk in access_aware_chunks]}"
+            f"Indexing the following chunks: {[chunk.to_short_descriptor() for chunk in chunks]}"
         )
         # A document will not be spread across different batches, so all the
         # documents with chunks in this set, are fully represented by the chunks
@@ -338,18 +338,16 @@ def index_doc_batch(
         insertion_records = document_index.index(chunks=access_aware_chunks)
 
         successful_doc_ids = [record.document_id for record in insertion_records]
-        successful_docs = [
-            doc for doc in ctx.updatable_docs if doc.id in successful_doc_ids
-        ]
+        successful_docs = [doc for doc in ctx.updatable_docs if doc.id in successful_doc_ids]
 
+        # Update the time of latest version of the doc successfully indexed
         last_modified_ids = []
         ids_to_new_updated_at = {}
         for doc in successful_docs:
-            last_modified_ids.append(doc.id)
-            # doc_updated_at is the connector source's idea of when the doc was last modified
-            if doc.doc_updated_at is None:
+           last_modified_ids.append(doc.id)
+           if doc.doc_updated_at is None:
                 continue
-            ids_to_new_updated_at[doc.id] = doc.doc_updated_at
+           ids_to_new_updated_at[doc.id] = doc.doc_updated_at
 
         update_docs_updated_at__no_commit(
             ids_to_new_updated_at=ids_to_new_updated_at, db_session=db_session

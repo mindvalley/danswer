@@ -55,6 +55,12 @@ def log_prompt(prompt: LanguageModelInput) -> None:
         logger.debug(f"Prompt:\n{prompt}")
 
 
+class LLMConfig(BaseModel):
+    model_provider: str
+    model_name: str
+    temperature: float
+
+
 class LLM(abc.ABC):
     """Mimics the LangChain LLM / BaseChatModel interfaces to make it easy
     to use these implementations to connect to a variety of LLM providers."""
