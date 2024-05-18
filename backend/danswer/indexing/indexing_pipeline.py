@@ -48,11 +48,16 @@ class DocumentBatchPrepareContext(BaseModel):
 
 class IndexingPipelineProtocol(Protocol):
     def __call__(
+<<<<<<< HEAD
         self,
         document_batch: list[Document],
         index_attempt_metadata: IndexAttemptMetadata,
     ) -> tuple[int, int]:
         ...
+=======
+        self, documents: list[Document], index_attempt_metadata: IndexAttemptMetadata
+    ) -> tuple[int, int]: ...
+>>>>>>> 82e0d35b (Stop using redis to test the stability of new postgres connection handling)
 
 
 def upsert_documents_in_db(
