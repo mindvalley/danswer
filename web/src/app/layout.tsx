@@ -136,7 +136,7 @@ export default async function RootLayout({
           className={`text-default min-h-screen bg-background ${
             // TODO: remove this once proper dark mode exists
             process.env.THEME_IS_DARK?.toLowerCase() === "true" ? "dark" : ""
-          }`}
+            }`}
         >
           <UserProvider>
             <ProviderContextProvider>

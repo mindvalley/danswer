@@ -424,3 +424,10 @@ ul > li > p {
   display: inline;
   /* Make paragraphs inline to reduce vertical space */
 }
+
+.ai-superscript {
+  font-size: 50%;
+  line-height: 2;
+  position: relative;
+  vertical-align: baseline;
+}

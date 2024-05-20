@@ -64,7 +64,6 @@ prompts:
     datetime_aware: true
     include_citations: true
 
-
   - name: "Summarize"
     description: "Summarize relevant information from retrieved context!"
     system: >
@@ -84,7 +83,6 @@ prompts:
     datetime_aware: true
     include_citations: true
 
-
   - name: "Paraphrase"
     description: "Recites information from retrieved context! Least creative but most safe!"
     system: >
@@ -92,10 +90,10 @@ prompts:
       The current date is DANSWER_DATETIME_REPLACEMENT.
 
       You only provide quotes that are EXACT substrings from provided documents!
-      
+
       If there are no documents provided,
       simply tell the user that there are no documents to reference.
-      
+
       You NEVER generate new text or phrases outside of the citation.
       DO NOT explain your responses, only provide the quotes and NOTHING ELSE.
     task: >

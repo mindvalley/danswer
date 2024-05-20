@@ -80,7 +80,7 @@ const Page = async ({
           {authUrl && authTypeMetadata && (
             <>
               <h2 className="text-center text-xl text-strong font-bold mt-6">
-                <LoginText />
+                Log In to Eve<sup className="ai-superscript">AI</sup>
               </h2>
 
               <SignInButton
@@ -93,7 +93,7 @@ const Page = async ({
             <Card className="mt-4 w-96">
               <div className="flex">
                 <Title className="mb-2 mx-auto font-bold">
-                  <LoginText />
+                  Log In to Eve<sup className="ai-superscript">AI</sup>
                 </Title>
               </div>
               <EmailPasswordForm />
