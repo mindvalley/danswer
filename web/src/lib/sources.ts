@@ -35,10 +35,16 @@ import {
   S3Icon,
   OCIStorageIcon,
   GoogleStorageIcon,
+  ColorSlackIcon,
 } from "@/components/icons/icons";
 import { ValidSources } from "./types";
-import { SourceCategory, SourceMetadata } from "./search/interfaces";
+import {
+  DanswerDocument,
+  SourceCategory,
+  SourceMetadata,
+} from "./search/interfaces";
 import { Persona } from "@/app/admin/assistants/interfaces";
+import { FaAccessibleIcon, FaSlack } from "react-icons/fa";
 
 interface PartialSourceMetadata {
   icon: React.FC<{ size?: number; className?: string }>;
@@ -62,7 +68,7 @@ const SOURCE_METADATA_MAP: SourceMap = {
     category: SourceCategory.ImportedKnowledge,
   },
   slack: {
-    icon: SlackIcon,
+    icon: ColorSlackIcon,
     displayName: "Slack",
     category: SourceCategory.AppConnection,
   },
@@ -261,11 +267,11 @@ export function getSourceMetadata(sourceType: ValidSources): SourceMetadata {
 }
 
 export function listSourceMetadata(): SourceMetadata[] {
-  const entries = Object.entries(SOURCE_METADATA_MAP).map(
-    ([source, metadata]) => {
+  const entries = Object.entries(SOURCE_METADATA_MAP)
+    .filter(([source, _]) => source !== "not_applicable")
+    .map(([source, metadata]) => {
       return fillSourceMetadata(metadata, source as ValidSources);
-    }
-  );
+    });
   return entries;
 }
 
@@ -287,4 +293,11 @@ export function getSourcesForPersona(persona: Persona): ValidSources[] {
     });
   });
   return personaSources;
+}
+
+function stripTrailingSlash(str: string) {
+  if (str.substr(-1) === "/") {
+    return str.substr(0, str.length - 1);
+  }
+  return str;
 }

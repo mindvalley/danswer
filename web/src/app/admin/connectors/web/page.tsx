@@ -48,10 +48,6 @@ export default function Web() {
 
   return (
     <div className="mx-auto container">
-      <div className="mb-4">
-        <HealthCheckBanner />
-      </div>
-
       <AdminPageTitle icon={<GlobeIcon size={32} />} title="Web" />
 
       <Title className="mb-2 mt-6 ml-auto mr-auto">
@@ -98,7 +94,7 @@ export default function Web() {
                       name: "Sitemap",
                       value: "sitemap",
                       description:
-                        "Assumes the URL to Index points to a Sitemap. Will try and index all pages that are a mentioned in the sitemap.",
+                        "Enter the sitemap url or the root of the site which we can scan for a sitemap",
                     },
                   ]}
                 />

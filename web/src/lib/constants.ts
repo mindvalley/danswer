@@ -22,12 +22,16 @@ export const GOOGLE_DRIVE_AUTH_IS_ADMIN_COOKIE_NAME =
   "google_drive_auth_is_admin";
 
 export const SEARCH_TYPE_COOKIE_NAME = "search_type";
+export const AGENTIC_SEARCH_TYPE_COOKIE_NAME = "agentic_type";
 
 export const SIDEBAR_WIDTH_CONST = "350px";
 export const SIDEBAR_WIDTH = `w-[350px]`;
 
 export const LOGOUT_DISABLED =
   process.env.NEXT_PUBLIC_DISABLE_LOGOUT?.toLowerCase() === "true";
+
+export const NEXT_PUBLIC_DEFAULT_SIDEBAR_OPEN =
+  process.env.NEXT_PUBLIC_DEFAULT_SIDEBAR_OPEN?.toLowerCase() === "true";
 
 /* Enterprise-only settings */
 
@@ -45,3 +49,6 @@ export const EE_ENABLED =
 export const CUSTOM_ANALYTICS_ENABLED = process.env.CUSTOM_ANALYTICS_SECRET_KEY
   ? true
   : false;
+
+export const DISABLE_AGENTIC_SEARCH =
+  process.env.DISABLE_AGENTIC_SEARCH?.toLowerCase() === "true";

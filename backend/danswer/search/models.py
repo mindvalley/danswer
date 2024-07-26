@@ -130,11 +130,14 @@ class InferenceChunk(BaseChunk):
     recency_bias: float
     score: float | None
     hidden: bool
+    is_relevant: bool | None = None
+    relevance_explanation: str | None = None
     metadata: dict[str, str | list[str]]
     # Matched sections in the chunk. Uses Vespa syntax e.g. <hi>TEXT</hi>
     # to specify that a set of words should be highlighted. For example:
     # ["<hi>the</hi> <hi>answer</hi> is 42", "he couldn't find an <hi>answer</hi>"]
     match_highlights: list[str]
+
     # when the doc was last updated
     updated_at: datetime | None
     primary_owners: list[str] | None = None
@@ -189,6 +192,21 @@ class InferenceChunk(BaseChunk):
         return self.score > other.score
 
 
+class InferenceChunkUncleaned(InferenceChunk):
+    title: str | None  # Separate from Semantic Identifier though often same
+    metadata_suffix: str | None
+
+    def to_inference_chunk(self) -> InferenceChunk:
+        # Create a dict of all fields except 'title' and 'metadata_suffix'
+        # Assumes the cleaning has already been applied and just needs to translate to the right type
+        inference_chunk_data = {
+            k: v
+            for k, v in self.dict().items()
+            if k not in ["title", "metadata_suffix"]
+        }
+        return InferenceChunk(**inference_chunk_data)
+
+
 class InferenceSection(BaseModel):
     """Section list of chunks with a combined content. A section could be a single chunk, several
     chunks from the same document or the entire document."""
@@ -212,6 +230,8 @@ class SearchDoc(BaseModel):
     hidden: bool
     metadata: dict[str, str | list[str]]
     score: float | None
+    is_relevant: bool | None = None
+    relevance_explanation: str | None = None
     # Matched sections in the doc. Uses Vespa syntax e.g. <hi>TEXT</hi>
     # to specify that a set of words should be highlighted. For example:
     # ["<hi>the</hi> <hi>answer</hi> is 42", "the answer is <hi>42</hi>""]

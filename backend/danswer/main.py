@@ -50,8 +50,8 @@ from danswer.db.standard_answer import create_initial_default_standard_answer_ca
 from danswer.db.swap_index import check_index_swap
 from danswer.document_index.factory import get_default_document_index
 from danswer.llm.llm_initialization import load_llm_providers
+from danswer.natural_language_processing.search_nlp_models import warm_up_encoders
 from danswer.search.retrieval.search_runner import download_nltk_data
-from danswer.search.search_nlp_models import warm_up_encoders
 from danswer.server.auth_check import check_router_auth
 from danswer.server.danswer_api.ingestion import router as danswer_api_router
 from danswer.server.documents.cc_pair import router as cc_pair_router
@@ -67,6 +67,8 @@ from danswer.server.features.tool.api import admin_router as admin_tool_router
 from danswer.server.features.tool.api import router as tool_router
 from danswer.server.gpts.api import router as gpts_router
 from danswer.server.manage.administrative import router as admin_router
+from danswer.server.manage.embedding.api import admin_router as embedding_admin_router
+from danswer.server.manage.embedding.api import basic_router as embedding_router
 from danswer.server.manage.get_state import router as state_router
 from danswer.server.manage.llm.api import admin_router as llm_admin_router
 from danswer.server.manage.llm.api import basic_router as llm_router
@@ -251,12 +253,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
                 time.sleep(wait_time)
 
     logger.info(f"Model Server: http://{MODEL_SERVER_HOST}:{MODEL_SERVER_PORT}")
-    warm_up_encoders(
-        model_name=db_embedding_model.model_name,
-        normalize=db_embedding_model.normalize,
-        model_server_host=MODEL_SERVER_HOST,
-        model_server_port=MODEL_SERVER_PORT,
-    )
+    if db_embedding_model.cloud_provider_id is None:
+        warm_up_encoders(
+            model_name=db_embedding_model.model_name,
+            normalize=db_embedding_model.normalize,
+            model_server_host=MODEL_SERVER_HOST,
+            model_server_port=MODEL_SERVER_PORT,
+        )
 
     optional_telemetry(record_type=RecordType.VERSION, data={"version": __version__})
     yield
@@ -295,6 +298,8 @@ def get_application() -> FastAPI:
     include_router_with_global_prefix_prepended(application, settings_admin_router)
     include_router_with_global_prefix_prepended(application, llm_admin_router)
     include_router_with_global_prefix_prepended(application, llm_router)
+    include_router_with_global_prefix_prepended(application, embedding_admin_router)
+    include_router_with_global_prefix_prepended(application, embedding_router)
     include_router_with_global_prefix_prepended(
         application, token_rate_limit_settings_router
     )

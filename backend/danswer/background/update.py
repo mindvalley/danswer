@@ -16,6 +16,7 @@ from danswer.configs.app_configs import CLEANUP_INDEXING_JOBS_TIMEOUT
 from danswer.configs.app_configs import DASK_JOB_CLIENT_ENABLED
 from danswer.configs.app_configs import DISABLE_INDEX_UPDATE_ON_SWAP
 from danswer.configs.app_configs import NUM_INDEXING_WORKERS
+from danswer.configs.app_configs import NUM_SECONDARY_INDEXING_WORKERS
 from danswer.db.connector import fetch_connectors
 from danswer.db.embedding_model import get_current_db_embedding_model
 from danswer.db.embedding_model import get_secondary_db_embedding_model
@@ -33,7 +34,7 @@ from danswer.db.models import IndexAttempt
 from danswer.db.models import IndexingStatus
 from danswer.db.models import IndexModelStatus
 from danswer.db.swap_index import check_index_swap
-from danswer.search.search_nlp_models import warm_up_encoders
+from danswer.natural_language_processing.search_nlp_models import warm_up_encoders
 from danswer.utils.logger import setup_logger
 from danswer.utils.variable_functionality import global_version
 from danswer.utils.variable_functionality import set_is_ee_based_on_env_variable
@@ -271,6 +272,8 @@ def kickoff_indexing_jobs(
     # Don't include jobs waiting in the Dask queue that just haven't started running
     # Also (rarely) don't include for jobs that started but haven't updated the indexing tables yet
     with Session(engine) as db_session:
+        # get_not_started_index_attempts orders its returned results from oldest to newest
+        # we must process attempts in a FIFO manner to prevent connector starvation
         new_indexing_attempts = [
             (attempt, attempt.embedding_model)
             for attempt in get_not_started_index_attempts(db_session)
@@ -335,7 +338,11 @@ def kickoff_indexing_jobs(
     return existing_jobs_copy
 
 
-def update_loop(delay: int = 10, num_workers: int = NUM_INDEXING_WORKERS) -> None:
+def update_loop(
+    delay: int = 10,
+    num_workers: int = NUM_INDEXING_WORKERS,
+    num_secondary_workers: int = NUM_SECONDARY_INDEXING_WORKERS,
+) -> None:
     engine = get_sqlalchemy_engine()
     with Session(engine) as db_session:
         check_index_swap(db_session=db_session)
@@ -343,13 +350,15 @@ def update_loop(delay: int = 10, num_workers: int = NUM_INDEXING_WORKERS) -> Non
 
     # So that the first time users aren't surprised by really slow speed of first
     # batch of documents indexed
-    logger.info("Running a first inference to warm up embedding model")
-    warm_up_encoders(
-        model_name=db_embedding_model.model_name,
-        normalize=db_embedding_model.normalize,
-        model_server_host=INDEXING_MODEL_SERVER_HOST,
-        model_server_port=MODEL_SERVER_PORT,
-    )
+
+    if db_embedding_model.cloud_provider_id is None:
+        logger.info("Running a first inference to warm up embedding model")
+        warm_up_encoders(
+            model_name=db_embedding_model.model_name,
+            normalize=db_embedding_model.normalize,
+            model_server_host=INDEXING_MODEL_SERVER_HOST,
+            model_server_port=MODEL_SERVER_PORT,
+        )
 
     client_primary: Client | SimpleJobClient
     client_secondary: Client | SimpleJobClient
@@ -364,7 +373,7 @@ def update_loop(delay: int = 10, num_workers: int = NUM_INDEXING_WORKERS) -> Non
             silence_logs=logging.ERROR,
         )
         cluster_secondary = LocalCluster(
-            n_workers=num_workers,
+            n_workers=num_secondary_workers,
             threads_per_worker=1,
             silence_logs=logging.ERROR,
         )
@@ -374,7 +383,7 @@ def update_loop(delay: int = 10, num_workers: int = NUM_INDEXING_WORKERS) -> Non
             client_primary.register_worker_plugin(ResourceLogger())
     else:
         client_primary = SimpleJobClient(n_workers=num_workers)
-        client_secondary = SimpleJobClient(n_workers=num_workers)
+        client_secondary = SimpleJobClient(n_workers=num_secondary_workers)
 
     existing_jobs: dict[int, Future | SimpleJob] = {}
 

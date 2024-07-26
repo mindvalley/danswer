@@ -34,8 +34,8 @@ from danswer.llm.answering.stream_processing.quotes_processing import (
 from danswer.llm.answering.stream_processing.utils import DocumentIdOrderMapping
 from danswer.llm.answering.stream_processing.utils import map_document_id_order
 from danswer.llm.interfaces import LLM
-from danswer.llm.utils import get_default_llm_tokenizer
 from danswer.llm.utils import message_generator_to_string_generator
+from danswer.natural_language_processing.utils import get_default_llm_tokenizer
 from danswer.tools.custom.custom_tool_prompt_builder import (
     build_user_message_for_custom_tool_for_non_tool_calling_llm,
 )
@@ -89,6 +89,9 @@ def _get_answer_stream_processor(
 AnswerStream = Iterator[AnswerQuestionPossibleReturn | ToolCallKickoff | ToolResponse]
 
 
+logger = setup_logger()
+
+
 class Answer:
     def __init__(
         self,
@@ -96,6 +99,7 @@ class Answer:
         answer_style_config: AnswerStyleConfig,
         llm: LLM,
         prompt_config: PromptConfig,
+        force_use_tool: ForceUseTool,
         # must be the same length as `docs`. If None, all docs are considered "relevant"
         message_history: list[PreviousMessage] | None = None,
         single_message_history: str | None = None,
@@ -104,14 +108,13 @@ class Answer:
         latest_query_files: list[InMemoryChatFile] | None = None,
         files: list[InMemoryChatFile] | None = None,
         tools: list[Tool] | None = None,
-        # if specified, tells the LLM to always this tool
         # NOTE: for native tool-calling, this is only supported by OpenAI atm,
         #       but we only support them anyways
-        force_use_tool: ForceUseTool | None = None,
         # if set to True, then never use the LLMs provided tool-calling functonality
         skip_explicit_tool_calling: bool = False,
         # Returns the full document sections text from the search tool
         return_contexts: bool = False,
+        skip_gen_ai_answer_generation: bool = False,
     ) -> None:
         if single_message_history and message_history:
             raise ValueError(
@@ -125,6 +128,7 @@ class Answer:
 
         self.tools = tools or []
         self.force_use_tool = force_use_tool
+
         self.skip_explicit_tool_calling = skip_explicit_tool_calling
 
         self.message_history = message_history or []
@@ -141,11 +145,12 @@ class Answer:
 
         self._streamed_output: list[str] | None = None
 
-        self._processed_stream: list[
-            AnswerQuestionPossibleReturn | ToolResponse | ToolCallKickoff
-        ] | None = None
+        self._processed_stream: (
+            list[AnswerQuestionPossibleReturn | ToolResponse | ToolCallKickoff] | None
+        ) = None
 
         self._return_contexts = return_contexts
+        self.skip_gen_ai_answer_generation = skip_gen_ai_answer_generation
 
     def _update_prompt_builder_for_search_tool(
         self, prompt_builder: AnswerPromptBuilder, final_context_documents: list[LlmDoc]
@@ -183,7 +188,7 @@ class Answer:
         prompt_builder = AnswerPromptBuilder(self.message_history, self.llm.config)
 
         tool_call_chunk: AIMessageChunk | None = None
-        if self.force_use_tool and self.force_use_tool.args is not None:
+        if self.force_use_tool.force_use and self.force_use_tool.args is not None:
             # if we are forcing a tool WITH args specified, we don't need to check which tools to run
             # / need to generate the args
             tool_call_chunk = AIMessageChunk(
@@ -217,7 +222,7 @@ class Answer:
             for message in self.llm.stream(
                 prompt=prompt,
                 tools=final_tool_definitions if final_tool_definitions else None,
-                tool_choice="required" if self.force_use_tool else None,
+                tool_choice="required" if self.force_use_tool.force_use else None,
             ):
                 if isinstance(message, AIMessageChunk) and (
                     message.tool_call_chunks or message.tool_calls
@@ -236,12 +241,26 @@ class Answer:
         # if we have a tool call, we need to call the tool
         tool_call_requests = tool_call_chunk.tool_calls
         for tool_call_request in tool_call_requests:
-            tool = [
+            known_tools_by_name = [
                 tool for tool in self.tools if tool.name == tool_call_request["name"]
-            ][0]
+            ]
+
+            if not known_tools_by_name:
+                logger.error(
+                    "Tool call requested with unknown name field. \n"
+                    f"self.tools: {self.tools}"
+                    f"tool_call_request: {tool_call_request}"
+                )
+                if self.tools:
+                    tool = self.tools[0]
+                else:
+                    continue
+            else:
+                tool = known_tools_by_name[0]
             tool_args = (
                 self.force_use_tool.args
-                if self.force_use_tool and self.force_use_tool.args
+                if self.force_use_tool.tool_name == tool.name
+                and self.force_use_tool.args
                 else tool_call_request["args"]
             )
 
@@ -282,7 +301,7 @@ class Answer:
         prompt_builder = AnswerPromptBuilder(self.message_history, self.llm.config)
         chosen_tool_and_args: tuple[Tool, dict] | None = None
 
-        if self.force_use_tool:
+        if self.force_use_tool.force_use:
             # if we are forcing a tool, we don't need to check which tools to run
             tool = next(
                 iter(
@@ -299,7 +318,7 @@ class Answer:
 
             tool_args = (
                 self.force_use_tool.args
-                if self.force_use_tool.args
+                if self.force_use_tool.args is not None
                 else tool.get_args_for_non_tool_calling_llm(
                     query=self.question,
                     history=self.message_history,
@@ -404,8 +423,9 @@ class Answer:
                     )
                 )
             )
+        final = tool_runner.tool_final_result()
 
-        yield tool_runner.tool_final_result()
+        yield final
 
         prompt = prompt_builder.build()
         yield from message_generator_to_string_generator(self.llm.stream(prompt=prompt))
@@ -468,22 +488,23 @@ class Answer:
                     # assumes all tool responses will come first, then the final answer
                     break
 
-            process_answer_stream_fn = _get_answer_stream_processor(
-                context_docs=final_context_docs or [],
-                # if doc selection is enabled, then search_results will be None,
-                # so we need to use the final_context_docs
-                doc_id_to_rank_map=map_document_id_order(
-                    search_results or final_context_docs or []
-                ),
-                answer_style_configs=self.answer_style_config,
-            )
+            if not self.skip_gen_ai_answer_generation:
+                process_answer_stream_fn = _get_answer_stream_processor(
+                    context_docs=final_context_docs or [],
+                    # if doc selection is enabled, then search_results will be None,
+                    # so we need to use the final_context_docs
+                    doc_id_to_rank_map=map_document_id_order(
+                        search_results or final_context_docs or []
+                    ),
+                    answer_style_configs=self.answer_style_config,
+                )
 
-            def _stream() -> Iterator[str]:
-                if message:
-                    yield cast(str, message)
-                yield from cast(Iterator[str], stream)
+                def _stream() -> Iterator[str]:
+                    if message:
+                        yield cast(str, message)
+                    yield from cast(Iterator[str], stream)
 
-            yield from process_answer_stream_fn(_stream())
+                yield from process_answer_stream_fn(_stream())
 
         processed_stream = []
         for processed_packet in _process_stream(output_generator):

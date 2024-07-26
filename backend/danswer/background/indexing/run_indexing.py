@@ -20,7 +20,7 @@ from danswer.db.connector_credential_pair import update_connector_credential_pai
 from danswer.db.engine import get_sqlalchemy_engine
 from danswer.db.index_attempt import get_index_attempt
 from danswer.db.index_attempt import mark_attempt_failed
-from danswer.db.index_attempt import mark_attempt_in_progress__no_commit
+from danswer.db.index_attempt import mark_attempt_in_progress
 from danswer.db.index_attempt import mark_attempt_succeeded
 from danswer.db.index_attempt import update_docs_indexed
 from danswer.db.models import IndexAttempt
@@ -98,7 +98,6 @@ def _run_indexing(
     3. Updates Postgres to record the indexed documents + the outcome of this run
     """
     start_time = time.time()
-
     db_embedding_model = index_attempt.embedding_model
     index_name = db_embedding_model.index_name
 
@@ -116,6 +115,8 @@ def _run_indexing(
         normalize=db_embedding_model.normalize,
         query_prefix=db_embedding_model.query_prefix,
         passage_prefix=db_embedding_model.passage_prefix,
+        api_key=db_embedding_model.api_key,
+        provider_type=db_embedding_model.provider_type,
     )
 
     indexing_pipeline = build_indexing_pipeline(
@@ -287,6 +288,7 @@ def _prepare_index_attempt(db_session: Session, index_attempt_id: int) -> IndexA
         db_session=db_session,
         index_attempt_id=index_attempt_id,
     )
+
     if attempt is None:
         raise RuntimeError(f"Unable to find IndexAttempt for ID '{index_attempt_id}'")
 
@@ -297,9 +299,7 @@ def _prepare_index_attempt(db_session: Session, index_attempt_id: int) -> IndexA
         )
 
     # only commit once, to make sure this all happens in a single transaction
-    mark_attempt_in_progress__no_commit(attempt)
-    if attempt.embedding_model.status != IndexModelStatus.PRESENT:
-        db_session.commit()
+    mark_attempt_in_progress(attempt, db_session)
 
     return attempt
 
