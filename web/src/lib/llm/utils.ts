@@ -99,7 +99,7 @@ const MODEL_PROVIDER_PAIRS_SUPPORTING_IMAGE_OUTPUT = [
   ["azure", "gpt-4o-mini"],
   ["azure", "gpt-4-vision-preview"],
   ["azure", "gpt-4-turbo"],
-  ["azure", "gpt-4-1106-vision-preview"],
+  ["azure", "gpt-4-1106-vision-preview"]
 ];
 
 export function checkLLMSupportsImageOutput(provider: string, model: string) {
