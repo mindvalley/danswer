@@ -132,17 +132,17 @@ export default function EmbeddingForm() {
 
   const originalRerankingDetails: RerankingDetails = searchSettings
     ? {
-        rerank_api_key: searchSettings.rerank_api_key,
-        rerank_provider_type: searchSettings.rerank_provider_type,
-        rerank_model_name: searchSettings.rerank_model_name,
-        rerank_api_url: searchSettings.rerank_api_url,
-      }
+      rerank_api_key: searchSettings.rerank_api_key,
+      rerank_provider_type: searchSettings.rerank_provider_type,
+      rerank_model_name: searchSettings.rerank_model_name,
+      rerank_api_url: searchSettings.rerank_api_url,
+    }
     : {
-        rerank_api_key: "",
-        rerank_provider_type: null,
-        rerank_model_name: "",
-        rerank_api_url: null,
-      };
+      rerank_api_key: "",
+      rerank_provider_type: null,
+      rerank_model_name: "",
+      rerank_api_url: null,
+    };
 
   useEffect(() => {
     if (currentEmbeddingModel) {
@@ -245,7 +245,7 @@ export default function EmbeddingForm() {
   const needsReIndex =
     currentEmbeddingModel != selectedProvider ||
     searchSettings?.multipass_indexing !=
-      advancedEmbeddingDetails.multipass_indexing;
+    advancedEmbeddingDetails.multipass_indexing;
 
   const ReIndexingButton = ({ needsReIndex }: { needsReIndex: boolean }) => {
     return needsReIndex ? (
@@ -275,8 +275,8 @@ export default function EmbeddingForm() {
               )}
               {searchSettings?.multipass_indexing !=
                 advancedEmbeddingDetails.multipass_indexing && (
-                <li>Multipass indexing modification</li>
-              )}
+                  <li>Multipass indexing modification</li>
+                )}
             </ul>
           </div>
         </div>

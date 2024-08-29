@@ -92,11 +92,10 @@ const RerankingDetailsForm = forwardRef<
                 {originalRerankingDetails.rerank_model_name && (
                   <button
                     onClick={() => setModelTab(null)}
-                    className={`mx-2 p-2 font-bold  ${
-                      !modelTab
+                    className={`mx-2 p-2 font-bold  ${!modelTab
                         ? "rounded bg-background-900 text-text-100 underline"
                         : " hover:underline bg-background-100"
-                    }`}
+                      }`}
                   >
                     Current
                   </button>
@@ -106,11 +105,10 @@ const RerankingDetailsForm = forwardRef<
                 >
                   <button
                     onClick={() => setModelTab("cloud")}
-                    className={`mr-2 p-2 font-bold  ${
-                      modelTab == "cloud"
+                    className={`mr-2 p-2 font-bold  ${modelTab == "cloud"
                         ? "rounded bg-background-900 text-text-100 underline"
                         : " hover:underline bg-background-100"
-                    }`}
+                      }`}
                   >
                     Cloud-based
                   </button>
@@ -119,11 +117,10 @@ const RerankingDetailsForm = forwardRef<
                 <div className="px-2">
                   <button
                     onClick={() => setModelTab("open")}
-                    className={` mx-2 p-2 font-bold  ${
-                      modelTab == "open"
+                    className={` mx-2 p-2 font-bold  ${modelTab == "open"
                         ? "rounded bg-background-900 text-text-100 underline"
                         : "hover:underline bg-background-100"
-                    }`}
+                      }`}
                   >
                     Self-hosted
                   </button>
@@ -144,34 +141,33 @@ const RerankingDetailsForm = forwardRef<
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {(modelTab
                     ? rerankingModels.filter(
-                        (model) => model.cloud == (modelTab == "cloud")
-                      )
+                      (model) => model.cloud == (modelTab == "cloud")
+                    )
                     : rerankingModels.filter(
-                        (modelCard) =>
-                          (modelCard.modelName ==
-                            originalRerankingDetails.rerank_model_name &&
-                            modelCard.rerank_provider_type ==
-                              originalRerankingDetails.rerank_provider_type) ||
-                          (modelCard.rerank_provider_type ==
-                            RerankerProvider.LITELLM &&
-                            originalRerankingDetails.rerank_provider_type ==
-                              RerankerProvider.LITELLM)
-                      )
+                      (modelCard) =>
+                        (modelCard.modelName ==
+                          originalRerankingDetails.rerank_model_name &&
+                          modelCard.rerank_provider_type ==
+                          originalRerankingDetails.rerank_provider_type) ||
+                        (modelCard.rerank_provider_type ==
+                          RerankerProvider.LITELLM &&
+                          originalRerankingDetails.rerank_provider_type ==
+                          RerankerProvider.LITELLM)
+                    )
                   ).map((card) => {
                     const isSelected =
                       values.rerank_provider_type ===
-                        card.rerank_provider_type &&
+                      card.rerank_provider_type &&
                       (card.modelName == null ||
                         values.rerank_model_name === card.modelName);
 
                     return (
                       <div
                         key={`${card.rerank_provider_type}-${card.modelName}`}
-                        className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${
-                          isSelected
+                        className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 ${isSelected
                             ? "border-blue-500 bg-blue-50 shadow-md"
                             : "border-gray-200 hover:border-blue-300 hover:shadow-sm"
-                        }`}
+                          }`}
                         onClick={() => {
                           if (
                             card.rerank_provider_type == RerankerProvider.COHERE
@@ -208,7 +204,7 @@ const RerankingDetailsForm = forwardRef<
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center">
                             {card.rerank_provider_type ===
-                            RerankerProvider.LITELLM ? (
+                              RerankerProvider.LITELLM ? (
                               <LiteLLMIcon size={24} className="mr-2" />
                             ) : card.rerank_provider_type ===
                               RerankerProvider.COHERE ? (
@@ -359,7 +355,7 @@ const RerankingDetailsForm = forwardRef<
                         setFieldValue(
                           key,
                           originalRerankingDetails[
-                            key as keyof RerankingDetails
+                          key as keyof RerankingDetails
                           ]
                         );
                       });

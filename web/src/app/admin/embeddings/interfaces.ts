@@ -36,7 +36,7 @@ export interface AdvancedSearchConfiguration {
 
 export interface SavedSearchSettings
   extends RerankingDetails,
-    AdvancedSearchConfiguration {
+  AdvancedSearchConfiguration {
   provider_type: EmbeddingProvider | null;
 }
 
