@@ -39,8 +39,8 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 
   return {
-    title: enterpriseSettings?.application_name ?? "Danswer",
-    description: "Question answering for your documents",
+    title: enterpriseSettings?.application_name ?? "Eve AI",
+    description: "With Eve, you can quickly access the information you need to succeed in Mindvalley",
     icons: {
       icon: logoLocation,
     },
@@ -62,12 +62,14 @@ export default async function RootLayout({
     return (
       <html lang="en" className={`${inter.variable} font-sans`}>
         <Head>
-          <title>Settings Unavailable | Danswer</title>
+          <title>Settings Unavailable | Eve AI</title>
         </Head>
         <body className="bg-background text-default">
           <div className="flex flex-col items-center justify-center min-h-screen">
             <div className="mb-2 flex items-center max-w-[175px]">
-              <HeaderTitle>Danswer</HeaderTitle>
+              <h1 className="flex text-2xl text-strong font-bold my-auto">
+                Eve<sup className="ai-superscript">AI</sup>
+              </h1>
               <Logo height={40} width={40} />
             </div>
 
