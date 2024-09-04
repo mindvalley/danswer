@@ -7,7 +7,12 @@ personas:
   - id: 0
     name: "Eve AI"
     description: >
-      AI Assistant with access to Mindvalley’s internal documents through the Connected Sources..
+      EVE AI Assistant is your personal work companion at Mindvalley. Designed to streamline your workday,
+      EVE provides quick answers using vast internal documents and knowladge through connected sources and information.
+      From HR policies and IT support to technical solutions and product details, EVE offers comprehensive assistance.
+      Whether you need company guidelines, troubleshooting tips, how-to guides, or insights into the organization’s activities,
+      EVE provides accurate and up-to-date information to help you focus on achieving your goals and contributing effectively
+      to the Mindvalley team.
     # Default Prompt objects attached to the persona, see prompts.yaml
     prompts:
       - "Answer-Question"
