@@ -70,6 +70,10 @@ def _process_citations_for_slack(text: str) -> str:
     def slack_link_format(match: Match) -> str:
         link_text = match.group(1)
         link_url = match.group(2)
+
+        # Account for empty link citations
+        if link_url == "":
+            return f"[{link_text}]"
         return f"<{link_url}|[{link_text}]>"
 
     # Substitute all matches in the input text
@@ -299,7 +303,9 @@ def build_sources_blocks(
                     else []
                 )
                 + [
-                    MarkdownTextObject(
+                    MarkdownTextObject(text=f"{document_title}")
+                    if d.link == ""
+                    else MarkdownTextObject(
                         text=f"*<{d.link}|[{citation_num}] {document_title}>*\n{final_metadata_str}"
                     ),
                 ]
@@ -474,7 +480,7 @@ def build_follow_up_resolved_blocks(
     if tag_str:
         tag_str += " "
 
-    group_str = " ".join([f"<!subteam^{group}>" for group in group_ids])
+    group_str = " ".join([f"<!subteam^{group_id}|>" for group_id in group_ids])
     if group_str:
         group_str += " "
 

@@ -1,6 +1,4 @@
 import datetime
-import logging
-from typing import cast
 
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -9,7 +7,6 @@ from sqlalchemy.orm import Session
 from danswer.configs.danswerbot_configs import DANSWER_BOT_FEEDBACK_REMINDER
 from danswer.configs.danswerbot_configs import DANSWER_REACT_EMOJI
 from danswer.danswerbot.slack.blocks import get_feedback_reminder_blocks
-from danswer.danswerbot.slack.constants import SLACK_CHANNEL_ID
 from danswer.danswerbot.slack.handlers.handle_regular_answer import (
     handle_regular_answer,
 )
@@ -17,15 +14,15 @@ from danswer.danswerbot.slack.handlers.handle_standard_answers import (
     handle_standard_answers,
 )
 from danswer.danswerbot.slack.models import SlackMessageInfo
-from danswer.danswerbot.slack.utils import ChannelIdAdapter
-from danswer.danswerbot.slack.utils import fetch_userids_from_emails
-from danswer.danswerbot.slack.utils import fetch_userids_from_groups
+from danswer.danswerbot.slack.utils import fetch_user_ids_from_emails
+from danswer.danswerbot.slack.utils import fetch_user_ids_from_groups
 from danswer.danswerbot.slack.utils import respond_in_thread
 from danswer.danswerbot.slack.utils import slack_usage_report
 from danswer.danswerbot.slack.utils import update_emote_react
 from danswer.db.engine import get_sqlalchemy_engine
 from danswer.db.models import SlackBotConfig
 from danswer.utils.logger import setup_logger
+from shared_configs.configs import SLACK_CHANNEL_ID
 
 logger_base = setup_logger()
 
@@ -53,12 +50,8 @@ def send_msg_ack_to_user(details: SlackMessageInfo, client: WebClient) -> None:
 def schedule_feedback_reminder(
     details: SlackMessageInfo, include_followup: bool, client: WebClient
 ) -> str | None:
-    logger = cast(
-        logging.Logger,
-        ChannelIdAdapter(
-            logger_base, extra={SLACK_CHANNEL_ID: details.channel_to_respond}
-        ),
-    )
+    logger = setup_logger(extra={SLACK_CHANNEL_ID: details.channel_to_respond})
+
     if not DANSWER_BOT_FEEDBACK_REMINDER:
         logger.info("Scheduled feedback reminder disabled...")
         return None
@@ -97,10 +90,7 @@ def schedule_feedback_reminder(
 def remove_scheduled_feedback_reminder(
     client: WebClient, channel: str | None, msg_id: str
 ) -> None:
-    logger = cast(
-        logging.Logger,
-        ChannelIdAdapter(logger_base, extra={SLACK_CHANNEL_ID: channel}),
-    )
+    logger = setup_logger(extra={SLACK_CHANNEL_ID: channel})
 
     try:
         client.chat_deleteScheduledMessage(
@@ -129,10 +119,7 @@ def handle_message(
     """
     channel = message_info.channel_to_respond
 
-    logger = cast(
-        logging.Logger,
-        ChannelIdAdapter(logger_base, extra={SLACK_CHANNEL_ID: channel}),
-    )
+    logger = setup_logger(extra={SLACK_CHANNEL_ID: channel})
 
     messages = message_info.thread_messages
     sender_id = message_info.sender
@@ -158,11 +145,8 @@ def handle_message(
         ]
         prompt = persona.prompts[0] if persona.prompts else None
 
-    # List of user id to send message to, if None, send to everyone in channel
-    send_to: list[str] | None = None
     respond_tag_only = False
-    respond_team_member_list = None
-    respond_slack_group_list = None
+    respond_member_group_list = None
 
     channel_conf = None
     if slack_bot_config and slack_bot_config.channel_config:
@@ -184,8 +168,7 @@ def handle_message(
         )
 
         respond_tag_only = channel_conf.get("respond_tag_only") or False
-        respond_team_member_list = channel_conf.get("respond_team_member_list") or None
-        respond_slack_group_list = channel_conf.get("respond_slack_group_list") or None
+        respond_member_group_list = channel_conf.get("respond_member_group_list", None)
 
     if respond_tag_only and not bypass_filters:
         logger.info(
@@ -194,17 +177,23 @@ def handle_message(
         )
         return False
 
-    if respond_team_member_list:
-        send_to, _ = fetch_userids_from_emails(respond_team_member_list, client)
-    if respond_slack_group_list:
-        user_ids, _ = fetch_userids_from_groups(respond_slack_group_list, client)
-        send_to = (send_to + user_ids) if send_to else user_ids
-    if send_to:
-        send_to = list(set(send_to))  # remove duplicates
+    # List of user id to send message to, if None, send to everyone in channel
+    send_to: list[str] | None = None
+    missing_users: list[str] | None = None
+    if respond_member_group_list:
+        send_to, missing_ids = fetch_user_ids_from_emails(
+            respond_member_group_list, client
+        )
+
+        user_ids, missing_users = fetch_user_ids_from_groups(missing_ids, client)
+        send_to = list(set(send_to + user_ids)) if send_to else user_ids
+
+        if missing_users:
+            logger.warning(f"Failed to find these users/groups: {missing_users}")
 
     # If configured to respond to team members only, then cannot be used with a /DanswerBot command
     # which would just respond to the sender
-    if (respond_team_member_list or respond_slack_group_list) and is_bot_msg:
+    if send_to and is_bot_msg:
         if sender_id:
             respond_in_thread(
                 client=client,

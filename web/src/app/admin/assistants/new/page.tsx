@@ -20,6 +20,7 @@ export default async function Page() {
       <Card>
         <AssistantEditor
           {...values}
+          admin
           defaultPublic={true}
           redirectType={SuccessfulPersonaUpdateRedirectType.ADMIN}
         />
@@ -28,7 +29,7 @@ export default async function Page() {
   }
 
   return (
-    <div>
+    <div className="w-full">
       <BackButton />
       <AdminPageTitle
         title="Create a New Assistant"

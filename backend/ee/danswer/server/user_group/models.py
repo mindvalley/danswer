@@ -16,6 +16,7 @@ class UserGroup(BaseModel):
     id: int
     name: str
     users: list[UserInfo]
+    curator_ids: list[UUID]
     cc_pairs: list[ConnectorCredentialPairDescriptor]
     document_sets: list[DocumentSet]
     personas: list[PersonaSnapshot]
@@ -36,10 +37,16 @@ class UserGroup(BaseModel):
                     is_verified=user.is_verified,
                     role=user.role,
                     preferences=UserPreferences(
-                        chosen_assistants=user.chosen_assistants
+                        default_model=user.default_model,
+                        chosen_assistants=user.chosen_assistants,
                     ),
                 )
                 for user in user_group_model.users
+            ],
+            curator_ids=[
+                user.user_id
+                for user in user_group_model.user_group_relationships
+                if user.is_curator and user.user_id is not None
             ],
             cc_pairs=[
                 ConnectorCredentialPairDescriptor(
@@ -61,6 +68,7 @@ class UserGroup(BaseModel):
             personas=[
                 PersonaSnapshot.from_model(persona)
                 for persona in user_group_model.personas
+                if not persona.deleted
             ],
             is_up_to_date=user_group_model.is_up_to_date,
             is_up_for_deletion=user_group_model.is_up_for_deletion,
@@ -76,3 +84,8 @@ class UserGroupCreate(BaseModel):
 class UserGroupUpdate(BaseModel):
     user_ids: list[UUID]
     cc_pair_ids: list[int]
+
+
+class SetCuratorRequest(BaseModel):
+    user_id: UUID
+    is_curator: bool

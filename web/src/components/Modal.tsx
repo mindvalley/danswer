@@ -1,7 +1,12 @@
+"use client";
 import { Divider } from "@tremor/react";
 import { FiX } from "react-icons/fi";
+import { IconProps } from "./icons/icons";
+import { useRef } from "react";
+import { isEventWithinRef } from "@/lib/contains";
 
 interface ModalProps {
+  icon?: ({ size, className }: IconProps) => JSX.Element;
   children: JSX.Element | string;
   title?: JSX.Element | string;
   onOutsideClick?: () => void;
@@ -13,6 +18,7 @@ interface ModalProps {
 }
 
 export function Modal({
+  icon,
   children,
   title,
   onOutsideClick,
@@ -22,6 +28,18 @@ export function Modal({
   hideDividerForTitle,
   noPadding,
 }: ModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (
+      onOutsideClick &&
+      modalRef.current &&
+      !modalRef.current.contains(e.target as Node) &&
+      !isEventWithinRef(e.nativeEvent, modalRef)
+    ) {
+      onOutsideClick();
+    }
+  };
   return (
     <div>
       <div
@@ -29,9 +47,10 @@ export function Modal({
         fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm
         flex items-center justify-center z-50
       `}
-        onClick={onOutsideClick}
+        onMouseDown={handleMouseDown}
       >
         <div
+          ref={modalRef}
           className={`
           bg-background rounded shadow-lg
           relative ${width ?? "w-1/2"} text-sm 
@@ -44,10 +63,15 @@ export function Modal({
             <>
               <div className="flex mb-4">
                 <h2
-                  className={"my-auto font-bold " + (titleSize || "text-2xl")}
+                  className={
+                    "my-auto flex content-start gap-x-4 font-bold " +
+                    (titleSize || "text-2xl")
+                  }
                 >
                   {title}
+                  {icon && icon({ size: 30 })}
                 </h2>
+
                 {onOutsideClick && (
                   <div
                     onClick={onOutsideClick}

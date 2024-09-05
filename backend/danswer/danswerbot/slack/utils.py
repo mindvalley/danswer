@@ -3,7 +3,6 @@ import random
 import re
 import string
 import time
-from collections.abc import MutableMapping
 from typing import Any
 from typing import cast
 from typing import Optional
@@ -22,10 +21,15 @@ from danswer.configs.danswerbot_configs import DANSWER_BOT_FEEDBACK_VISIBILITY
 from danswer.configs.danswerbot_configs import DANSWER_BOT_MAX_QPM
 from danswer.configs.danswerbot_configs import DANSWER_BOT_MAX_WAIT_TIME
 from danswer.configs.danswerbot_configs import DANSWER_BOT_NUM_RETRIES
+from danswer.configs.danswerbot_configs import (
+    DANSWER_BOT_RESPONSE_LIMIT_PER_TIME_PERIOD,
+)
+from danswer.configs.danswerbot_configs import (
+    DANSWER_BOT_RESPONSE_LIMIT_TIME_PERIOD_SECONDS,
+)
 from danswer.connectors.slack.utils import make_slack_api_rate_limited
 from danswer.connectors.slack.utils import SlackTextCleaner
 from danswer.danswerbot.slack.constants import FeedbackVisibility
-from danswer.danswerbot.slack.constants import SLACK_CHANNEL_ID
 from danswer.danswerbot.slack.tokens import fetch_tokens
 from danswer.db.engine import get_sqlalchemy_engine
 from danswer.db.users import get_user_by_email
@@ -43,7 +47,41 @@ from danswer.utils.text_processing import replace_whitespaces_w_space
 logger = setup_logger()
 
 
-DANSWER_BOT_APP_ID: str | None = None
+_DANSWER_BOT_APP_ID: str | None = None
+_DANSWER_BOT_MESSAGE_COUNT: int = 0
+_DANSWER_BOT_COUNT_START_TIME: float = time.time()
+
+
+def get_danswer_bot_app_id(web_client: WebClient) -> Any:
+    global _DANSWER_BOT_APP_ID
+    if _DANSWER_BOT_APP_ID is None:
+        _DANSWER_BOT_APP_ID = web_client.auth_test().get("user_id")
+    return _DANSWER_BOT_APP_ID
+
+
+def check_message_limit() -> bool:
+    """
+    This isnt a perfect solution.
+    High traffic at the end of one period and start of another could cause
+    the limit to be exceeded.
+    """
+    if DANSWER_BOT_RESPONSE_LIMIT_PER_TIME_PERIOD == 0:
+        return True
+    global _DANSWER_BOT_MESSAGE_COUNT
+    global _DANSWER_BOT_COUNT_START_TIME
+    time_since_start = time.time() - _DANSWER_BOT_COUNT_START_TIME
+    if time_since_start > DANSWER_BOT_RESPONSE_LIMIT_TIME_PERIOD_SECONDS:
+        _DANSWER_BOT_MESSAGE_COUNT = 0
+        _DANSWER_BOT_COUNT_START_TIME = time.time()
+    if (_DANSWER_BOT_MESSAGE_COUNT + 1) > DANSWER_BOT_RESPONSE_LIMIT_PER_TIME_PERIOD:
+        logger.error(
+            f"DanswerBot has reached the message limit {DANSWER_BOT_RESPONSE_LIMIT_PER_TIME_PERIOD}"
+            f" for the time period {DANSWER_BOT_RESPONSE_LIMIT_TIME_PERIOD_SECONDS} seconds."
+            " These limits are configurable in backend/danswer/configs/danswerbot_configs.py"
+        )
+        return False
+    _DANSWER_BOT_MESSAGE_COUNT += 1
+    return True
 
 
 def rephrase_slack_message(msg: str) -> str:
@@ -98,30 +136,9 @@ def update_emote_react(
             logger.error(f"Was not able to react to user message due to: {e}")
 
 
-def get_danswer_bot_app_id(web_client: WebClient) -> Any:
-    global DANSWER_BOT_APP_ID
-    if DANSWER_BOT_APP_ID is None:
-        DANSWER_BOT_APP_ID = web_client.auth_test().get("user_id")
-    return DANSWER_BOT_APP_ID
-
-
 def remove_danswer_bot_tag(message_str: str, client: WebClient) -> str:
     bot_tag_id = get_danswer_bot_app_id(web_client=client)
     return re.sub(rf"<@{bot_tag_id}>\s", "", message_str)
-
-
-class ChannelIdAdapter(logging.LoggerAdapter):
-    """This is used to add the channel ID to all log messages
-    emitted in this file"""
-
-    def process(
-        self, msg: str, kwargs: MutableMapping[str, Any]
-    ) -> tuple[str, MutableMapping[str, Any]]:
-        channel_id = self.extra.get(SLACK_CHANNEL_ID) if self.extra else None
-        if channel_id:
-            return f"[Channel ID: {channel_id}] {msg}", kwargs
-        else:
-            return msg, kwargs
 
 
 def get_web_client() -> WebClient:
@@ -302,7 +319,7 @@ def get_channel_name_from_id(
         raise e
 
 
-def fetch_userids_from_emails(
+def fetch_user_ids_from_emails(
     user_emails: list[str], client: WebClient
 ) -> tuple[list[str], list[str]]:
     user_ids: list[str] = []
@@ -318,57 +335,72 @@ def fetch_userids_from_emails(
     return user_ids, failed_to_find
 
 
-def fetch_userids_from_groups(
-    group_names: list[str], client: WebClient
+def fetch_user_ids_from_groups(
+    given_names: list[str], client: WebClient
 ) -> tuple[list[str], list[str]]:
     user_ids: list[str] = []
     failed_to_find: list[str] = []
-    for group_name in group_names:
-        try:
-            # First, find the group ID from the group name
-            response = client.usergroups_list()
-            groups = {group["name"]: group["id"] for group in response["usergroups"]}
-            group_id = groups.get(group_name)
+    try:
+        response = client.usergroups_list()
+        if not isinstance(response.data, dict):
+            logger.error("Error fetching user groups")
+            return user_ids, given_names
 
-            if group_id:
-                # Fetch user IDs for the group
+        all_group_data = response.data.get("usergroups", [])
+        name_id_map = {d["name"]: d["id"] for d in all_group_data}
+        handle_id_map = {d["handle"]: d["id"] for d in all_group_data}
+        for given_name in given_names:
+            group_id = name_id_map.get(given_name) or handle_id_map.get(
+                given_name.lstrip("@")
+            )
+            if not group_id:
+                failed_to_find.append(given_name)
+                continue
+            try:
                 response = client.usergroups_users_list(usergroup=group_id)
-                user_ids.extend(response["users"])
-            else:
-                failed_to_find.append(group_name)
-        except Exception as e:
-            logger.error(f"Error fetching user IDs for group {group_name}: {str(e)}")
-            failed_to_find.append(group_name)
+                if isinstance(response.data, dict):
+                    user_ids.extend(response.data.get("users", []))
+                else:
+                    failed_to_find.append(given_name)
+            except Exception as e:
+                logger.error(f"Error fetching user group ids: {str(e)}")
+                failed_to_find.append(given_name)
+    except Exception as e:
+        logger.error(f"Error fetching user groups: {str(e)}")
+        failed_to_find = given_names
 
     return user_ids, failed_to_find
 
 
-def fetch_groupids_from_names(
-    names: list[str], client: WebClient
+def fetch_group_ids_from_names(
+    given_names: list[str], client: WebClient
 ) -> tuple[list[str], list[str]]:
-    group_ids: set[str] = set()
+    group_data: list[str] = []
     failed_to_find: list[str] = []
 
     try:
         response = client.usergroups_list()
-        if response.get("ok") and "usergroups" in response.data:
-            all_groups_dicts = response.data["usergroups"]  # type: ignore
-            name_id_map = {d["name"]: d["id"] for d in all_groups_dicts}
-            handle_id_map = {d["handle"]: d["id"] for d in all_groups_dicts}
-            for group in names:
-                if group in name_id_map:
-                    group_ids.add(name_id_map[group])
-                elif group in handle_id_map:
-                    group_ids.add(handle_id_map[group])
-                else:
-                    failed_to_find.append(group)
-        else:
-            # Most likely a Slack App scope issue
+        if not isinstance(response.data, dict):
             logger.error("Error fetching user groups")
+            return group_data, given_names
+
+        all_group_data = response.data.get("usergroups", [])
+
+        name_id_map = {d["name"]: d["id"] for d in all_group_data}
+        handle_id_map = {d["handle"]: d["id"] for d in all_group_data}
+
+        for given_name in given_names:
+            id = handle_id_map.get(given_name.lstrip("@"))
+            id = id or name_id_map.get(given_name)
+            if id:
+                group_data.append(id)
+            else:
+                failed_to_find.append(given_name)
     except Exception as e:
+        failed_to_find = given_names
         logger.error(f"Error fetching user groups: {str(e)}")
 
-    return list(group_ids), failed_to_find
+    return group_data, failed_to_find
 
 
 def fetch_user_semantic_id_from_id(
