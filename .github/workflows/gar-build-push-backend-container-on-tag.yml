@@ -6,7 +6,7 @@ on:
       - "*"
 
 env:
-  GarProjectID: ${{ vars.GCR_PROJECT_ID }}
+  GarProjectID: mv-auxiliary
   GarImageName: prod-danswer-backend-gke
   GarRepo: mv-danswer
   GarCacheRepo: mv-apps-container-cache
