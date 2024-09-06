@@ -28,12 +28,9 @@ RUN apt-get remove -y --allow-remove-essential perl-base && \
 # Download model weights
 # Run Nomic to pull in the custom architecture and have it cached locally
 RUN python -c "from transformers import AutoTokenizer; \
-AutoTokenizer.from_pretrained('distilbert-base-uncased'); \
-AutoTokenizer.from_pretrained('mixedbread-ai/mxbai-rerank-xsmall-v1'); \
 from huggingface_hub import snapshot_download; \
 snapshot_download(repo_id='danswer/hybrid-intent-token-classifier', revision='v1.0.3'); \
 snapshot_download('nomic-ai/nomic-embed-text-v1'); \
-snapshot_download('mixedbread-ai/mxbai-rerank-xsmall-v1'); \
 from sentence_transformers import SentenceTransformer; \
 SentenceTransformer(model_name_or_path='nomic-ai/nomic-embed-text-v1', trust_remote_code=True);"
 
