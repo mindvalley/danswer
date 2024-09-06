@@ -30,7 +30,7 @@ RUN apt-get remove -y --allow-remove-essential perl-base && \
 
 # In case the user has volumes mounted to /root/.cache/huggingface that they've downloaded while
 # running Danswer, don't overwrite it with the built in cache folder
-RUN mv /root/.cache/huggingface /root/.cache/temp_huggingface
+# RUN mv /root/.cache/huggingface /root/.cache/temp_huggingface
 
 WORKDIR /app
 
