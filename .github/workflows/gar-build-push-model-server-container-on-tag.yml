@@ -63,7 +63,7 @@ jobs:
             --snapshot-mode=redo
             --cache-ttl=730h
           tags: |
-            us-docker.pkg.dev/${{ env.GarProjectID }}/${{ env.GarRepo }}/${{ env.GarImageName }}:${{ ggithub.sha }}
+            us-docker.pkg.dev/${{ env.GarProjectID }}/${{ env.GarRepo }}/${{ env.GarImageName }}:${{ github.sha }}
             us-docker.pkg.dev/${{ env.GarProjectID }}/${{ env.GarRepo }}/${{ env.GarImageName }}:latest
           build-args: |
             DANSWER_VERSION=${{ github.sha }}
