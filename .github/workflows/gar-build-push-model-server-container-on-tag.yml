@@ -45,7 +45,7 @@ jobs:
         id: metadata
         with:
           images: |
-            us-docker.pkg.dev/${{ env.GarProjectID }}/${{ env.GarRepo }}/${{ env.GarImageName }}:${{ github.ref_name }}
+            us-docker.pkg.dev/${{ env.GarProjectID }}/${{ env.GarRepo }}/${{ env.GarImageName }}:${{ github.sha }}
 
       - name: Model Server Image Docker Build and Push
         uses: int128/kaniko-action@v1
@@ -60,7 +60,7 @@ jobs:
             --snapshot-mode=redo
             --cache-ttl=730h
           tags: |
-            us-docker.pkg.dev/${{ env.GarProjectID }}/${{ env.GarRepo }}/${{ env.GarImageName }}:${{ github.ref_name }}
+            us-docker.pkg.dev/${{ env.GarProjectID }}/${{ env.GarRepo }}/${{ env.GarImageName }}:${{ github.sha }}
             us-docker.pkg.dev/${{ env.GarProjectID }}/${{ env.GarRepo }}/${{ env.GarImageName }}:latest
           build-args: |
-            DANSWER_VERSION=${{ github.ref_name }}
+            DANSWER_VERSION=${{ github.sha }}
