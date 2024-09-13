@@ -1,9 +1,13 @@
 import { ThreeDotsLoader } from "@/components/Loading";
 import { Modal } from "@/components/Modal";
 import { errorHandlingFetcher } from "@/lib/fetcher";
-import { ConnectorIndexingStatus } from "@/lib/types";
+import {
+  ConnectorIndexingStatus,
+  FailedConnectorIndexingStatus,
+  ValidStatuses,
+} from "@/lib/types";
 import { Button, Text, Title } from "@tremor/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR, { mutate } from "swr";
 import { ReindexingProgressTable } from "../../../../components/embedding/ReindexingProgressTable";
 import { ErrorCallout } from "@/components/ErrorCallout";
@@ -12,6 +16,8 @@ import {
   HostedEmbeddingModel,
 } from "../../../../components/embedding/interfaces";
 import { Connector } from "@/lib/connectors/connectors";
+import { FailedReIndexAttempts } from "@/components/embedding/FailedReIndexAttempts";
+import { PopupSpec, usePopup } from "@/components/admin/connectors/Popup";
 
 export default function UpgradingPage({
   futureEmbeddingModel,
@@ -20,6 +26,7 @@ export default function UpgradingPage({
 }) {
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
 
+  const { setPopup, popup } = usePopup();
   const { data: connectors } = useSWR<Connector<any>[]>(
     "/api/manage/connector",
     errorHandlingFetcher,
@@ -31,6 +38,14 @@ export default function UpgradingPage({
     isLoading: isLoadingOngoingReIndexingStatus,
   } = useSWR<ConnectorIndexingStatus<any, any>[]>(
     "/api/manage/admin/connector/indexing-status?secondary_index=true",
+    errorHandlingFetcher,
+    { refreshInterval: 5000 } // 5 seconds
+  );
+
+  const { data: failedIndexingStatus } = useSWR<
+    FailedConnectorIndexingStatus[]
+  >(
+    "/api/manage/admin/connector/failed-indexing-status?secondary_index=true",
     errorHandlingFetcher,
     { refreshInterval: 5000 } // 5 seconds
   );
@@ -48,9 +63,37 @@ export default function UpgradingPage({
     }
     setIsCancelling(false);
   };
+  const statusOrder: Record<ValidStatuses, number> = {
+    failed: 0,
+    completed_with_errors: 1,
+    not_started: 2,
+    in_progress: 3,
+    success: 4,
+  };
+
+  const sortedReindexingProgress = useMemo(() => {
+    return [...(ongoingReIndexingStatus || [])].sort((a, b) => {
+      const statusComparison =
+        statusOrder[a.latest_index_attempt?.status || "not_started"] -
+        statusOrder[b.latest_index_attempt?.status || "not_started"];
+
+      if (statusComparison !== 0) {
+        return statusComparison;
+      }
+
+      return (
+        (a.latest_index_attempt?.id || 0) - (b.latest_index_attempt?.id || 0)
+      );
+    });
+  }, [ongoingReIndexingStatus]);
+
+  if (!failedIndexingStatus) {
+    return <div>No failed index attempts</div>;
+  }
 
   return (
     <>
+      {popup}
       {isCancelling && (
         <Modal
           onOutsideClick={() => setIsCancelling(false)}
@@ -90,6 +133,12 @@ export default function UpgradingPage({
             >
               Cancel
             </Button>
+            {failedIndexingStatus.length > 0 && (
+              <FailedReIndexAttempts
+                failedIndexingStatuses={failedIndexingStatus}
+                setPopup={setPopup}
+              />
+            )}
 
             <Text className="my-4">
               The table below shows the re-indexing progress of all existing
@@ -101,9 +150,9 @@ export default function UpgradingPage({
 
             {isLoadingOngoingReIndexingStatus ? (
               <ThreeDotsLoader />
-            ) : ongoingReIndexingStatus ? (
+            ) : sortedReindexingProgress ? (
               <ReindexingProgressTable
-                reindexingProgress={ongoingReIndexingStatus}
+                reindexingProgress={sortedReindexingProgress}
               />
             ) : (
               <ErrorCallout errorTitle="Failed to fetch re-indexing progress" />

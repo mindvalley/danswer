@@ -2,6 +2,7 @@ import {
   AnswerPiecePacket,
   DanswerDocument,
   Filters,
+  StreamStopInfo,
 } from "@/lib/search/interfaces";
 import { handleSSEStream, handleStream } from "@/lib/search/streamingUtils";
 import { ChatState, FeedbackType } from "./types";
@@ -111,7 +112,8 @@ export type PacketType =
   | DocumentsResponse
   | ImageGenerationDisplay
   | StreamingError
-  | MessageResponseIDInfo;
+  | MessageResponseIDInfo
+  | StreamStopInfo;
 
 export async function* sendMessage({
   regenerate,
@@ -645,14 +647,14 @@ export async function useScrollonStream({
   scrollDist,
   endDivRef,
   distance,
-  debounce,
+  debounceNumber,
 }: {
   chatState: ChatState;
   scrollableDivRef: RefObject<HTMLDivElement>;
   scrollDist: MutableRefObject<number>;
   endDivRef: RefObject<HTMLDivElement>;
   distance: number;
-  debounce: number;
+  debounceNumber: number;
   mobile?: boolean;
 }) {
   const preventScrollInterference = useRef<boolean>(false);
@@ -709,7 +711,7 @@ export async function useScrollonStream({
 
           setTimeout(() => {
             blockActionRef.current = false;
-          }, debounce);
+          }, debounceNumber);
         }
       }
     }

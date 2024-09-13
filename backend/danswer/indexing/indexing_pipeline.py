@@ -7,6 +7,7 @@ from pydantic import ConfigDict
 from sqlalchemy.orm import Session
 
 from danswer.access.access import get_access_for_documents
+from danswer.access.models import DocumentAccess
 from danswer.configs.app_configs import ENABLE_MULTIPASS_INDEXING
 from danswer.configs.app_configs import INDEXING_EXCEPTION_LIMIT
 from danswer.configs.constants import DEFAULT_BOOST
@@ -17,7 +18,8 @@ from danswer.connectors.models import Document
 from danswer.connectors.models import IndexAttemptMetadata
 from danswer.db.document import get_documents_by_ids
 from danswer.db.document import prepare_to_modify_documents
-from danswer.db.document import update_docs_updated_at
+from danswer.db.document import update_docs_last_modified__no_commit
+from danswer.db.document import update_docs_updated_at__no_commit
 from danswer.db.document import upsert_documents_complete
 from danswer.db.document_set import fetch_document_sets_for_documents
 from danswer.db.index_attempt import create_index_attempt_error
@@ -263,6 +265,8 @@ def index_doc_batch(
     Note that the documents should already be batched at this point so that it does not inflate the
     memory requirements"""
 
+    no_access = DocumentAccess.build(user_ids=[], user_groups=[], is_public=False)
+
     ctx = index_doc_batch_prepare(
         document_batch=document_batch,
         index_attempt_metadata=index_attempt_metadata,
@@ -292,9 +296,6 @@ def index_doc_batch(
     # NOTE: don't need to acquire till here, since this is when the actual race condition
     # with Vespa can occur.
     with prepare_to_modify_documents(db_session=db_session, document_ids=updatable_ids):
-        # Attach the latest status from Postgres (source of truth for access) to each
-        # chunk. This access status will be attached to each chunk in the document index
-        # TODO: attach document sets to the chunk based on the status of Postgres as well
         document_id_to_access_info = get_access_for_documents(
             document_ids=updatable_ids, db_session=db_session
         )
@@ -304,10 +305,18 @@ def index_doc_batch(
                 document_ids=updatable_ids, db_session=db_session
             )
         }
+
+        # we're concerned about race conditions where multiple simultaneous indexings might result
+        # in one set of metadata overwriting another one in vespa.
+        # we still write data here for immediate and most likely correct sync, but
+        # to resolve this, an update of the last modified field at the end of this loop
+        # always triggers a final metadata sync
         access_aware_chunks = [
             DocMetadataAwareIndexChunk.from_index_chunk(
                 index_chunk=chunk,
-                access=document_id_to_access_info[chunk.source_document.id],
+                access=document_id_to_access_info.get(
+                    chunk.source_document.id, no_access
+                ),
                 document_sets=set(
                     document_id_to_document_set.get(chunk.source_document.id, [])
                 ),
@@ -333,18 +342,24 @@ def index_doc_batch(
             doc for doc in ctx.updatable_docs if doc.id in successful_doc_ids
         ]
 
-    # Update the time of latest version of the doc successfully indexed
-    ids_to_new_updated_at = {}
-    for doc in successful_docs:
-        if doc.doc_updated_at is None:
-            continue
-        ids_to_new_updated_at[doc.id] = doc.doc_updated_at
+        last_modified_ids = []
+        ids_to_new_updated_at = {}
+        for doc in successful_docs:
+            last_modified_ids.append(doc.id)
+            # doc_updated_at is the connector source's idea of when the doc was last modified
+            if doc.doc_updated_at is None:
+                continue
+            ids_to_new_updated_at[doc.id] = doc.doc_updated_at
 
-    update_docs_updated_at(
-        ids_to_new_updated_at=ids_to_new_updated_at, db_session=db_session
-    )
+        update_docs_updated_at__no_commit(
+            ids_to_new_updated_at=ids_to_new_updated_at, db_session=db_session
+        )
 
-    db_session.commit()
+        update_docs_last_modified__no_commit(
+            document_ids=last_modified_ids, db_session=db_session
+        )
+
+        db_session.commit()
 
     return len([r for r in insertion_records if r.already_existed is False]), len(
         access_aware_chunks

@@ -58,6 +58,15 @@ export interface DocumentBoostStatus {
   hidden: boolean;
 }
 
+export interface FailedConnectorIndexingStatus {
+  cc_pair_id: number;
+  name: string | null;
+  error_msg: string | null;
+  is_deletable: boolean;
+  connector_id: number;
+  credential_id: number;
+}
+
 export interface IndexAttemptSnapshot {
   id: number;
   status: ValidStatuses | null;
@@ -237,6 +246,12 @@ const validSources = [
   "google_cloud_storage",
   "oci_storage",
   "not_applicable",
-];
+  "ingestion_api",
+] as const;
 
 export type ValidSources = (typeof validSources)[number];
+// The valid sources that are actually valid to select in the UI
+export type ConfigurableSources = Exclude<
+  ValidSources,
+  "not_applicable" | "ingestion_api"
+>;

@@ -5,6 +5,6 @@
 .idea
 .python-version
 /deployment/data/nginx/app.conf
-.vscode/launch.json
+.vscode/
 *.sw?
 /backend/tests/regression/answer_quality/search_test_config.yaml
