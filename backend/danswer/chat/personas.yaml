@@ -19,7 +19,7 @@ personas:
     # Default number of chunks to include as context, set to 0 to disable retrieval
     # Remove the field to set to the system default number of chunks/tokens to pass to Gen AI
     # Each chunk is 512 tokens long
-    num_chunks: 50
+    num_chunks: 20
     # Enable/Disable usage of the LLM chunk filter feature whereby each chunk is passed to the LLM to determine
     # if the chunk is useful or not towards the latest user query
     # This feature can be overriden for all personas via DISABLE_LLM_DOC_RELEVANCE env variable
@@ -44,11 +44,11 @@ personas:
     document_sets: []
     icon_shape: 23013
     icon_color: "#6FB1FF"
-    display_priority: 1
+    display_priority: 0
     is_visible: true
 
   - id: 1
-    name: "General"
+    name: "General GPT"
     description: >
       Assistant with no access to documents. Chat with just the Large Language Model.
     prompts:
@@ -60,16 +60,16 @@ personas:
     document_sets: []
     icon_shape: 50910
     icon_color: "#FF6F6F"
-    display_priority: 0
+    display_priority: 1
     is_visible: true
 
   - id: 2
-    name: "Paraphrase"
+    name: "GPT Internet Search"
     description: >
-      Assistant that is heavily constrained and only provides exact quotes from Connected Sources.
+      Use this Assistant to search the Internet for you (via Bing) and getting the answer
     prompts:
-      - "Paraphrase"
-    num_chunks: 10
+      - "InternetSearch"
+    num_chunks: 0
     llm_relevance_filter: true
     llm_filter_extraction: true
     recency_bias: "auto"
@@ -77,7 +77,8 @@ personas:
     icon_shape: 45519
     icon_color: "#6FFF8D"
     display_priority: 2
-    is_visible: false
+    is_visible: true
+    internet_search: true
 
 
   - id: 3
@@ -95,4 +96,4 @@ personas:
     icon_color: "#9B59B6"
     image_generation: true 
     display_priority: 3
-    is_visible: true
+    is_visible: false
