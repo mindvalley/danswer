@@ -104,7 +104,6 @@ export function TextFormField({
   subtext,
   placeholder,
   value,
-  onChange,
   type = "text",
   optional,
   includeRevert,
@@ -121,6 +120,8 @@ export function TextFormField({
   explanationLink,
   small,
   removeLabel,
+  min,
+  onChange,
 }: {
   value?: string;
   name: string;
@@ -128,7 +129,6 @@ export function TextFormField({
   label: string;
   subtext?: string | JSX.Element;
   placeholder?: string;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   includeRevert?: boolean;
   optional?: boolean;
   type?: string;
@@ -144,11 +144,25 @@ export function TextFormField({
   explanationText?: string;
   explanationLink?: string;
   small?: boolean;
+  min?: number;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   let heightString = defaultHeight || "";
   if (isTextArea && !heightString) {
     heightString = "h-28";
   }
+
+  const [field, , helpers] = useField(name);
+  const { setValue } = helpers;
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    setValue(e.target.value);
+    if (onChange) {
+      onChange(e as React.ChangeEvent<HTMLInputElement>);
+    }
+  };
 
   return (
     <div className="w-full">
@@ -175,6 +189,8 @@ export function TextFormField({
       {subtext && <SubLabel>{subtext}</SubLabel>}
       <div className={`w-full flex ${includeRevert && "gap-x-2"}`}>
         <Field
+          onChange={handleChange}
+          min={min}
           as={isTextArea ? "textarea" : "input"}
           type={type}
           defaultValue={value}
@@ -187,7 +203,7 @@ export function TextFormField({
           rounded-lg
           w-full 
           py-2 
-          px-3 
+          px-3
           mt-1
           placeholder:font-description 
           placeholder:text-base 
@@ -200,26 +216,7 @@ export function TextFormField({
           disabled={disabled}
           placeholder={placeholder}
           autoComplete={autoCompleteDisabled ? "off" : undefined}
-          // onChange={onChange}
         />
-        {includeRevert && (
-          <div className="flex-none mt-auto">
-            <button
-              className="text-xs h-[35px] my-auto p-1.5 rounded bg-background-900 border-border-dark text-text-300 flex gap-x-1"
-              onClick={(e) => {
-                if (onChange) {
-                  onChange({
-                    target: { value: "" },
-                  } as React.ChangeEvent<HTMLInputElement>);
-                }
-                e.preventDefault();
-              }}
-            >
-              <EditIcon className="text-netural-300 my-auto" />
-              <p className="my-auto">Revert</p>
-            </button>
-          </div>
-        )}
       </div>
 
       {explanationText && (
@@ -396,17 +393,27 @@ export const BooleanFormField = ({
   alignTop,
   checked,
 }: BooleanFormFieldProps) => {
+  const [field, meta, helpers] = useField<boolean>(name);
+  const { setValue } = helpers;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setValue(e.target.checked);
+    if (onChange) {
+      onChange(e);
+    }
+  };
+
   return (
     <div>
       <label className="flex text-sm">
         <Field
-          disabled={disabled}
-          name={name}
-          checked={checked}
           type="checkbox"
+          {...field}
+          checked={checked !== undefined ? checked : field.value}
+          disabled={disabled}
+          onChange={handleChange}
           className={`${removeIndent ? "mr-2" : "mx-3"}     
-            px-5 w-3.5 h-3.5 ${alignTop ? "mt-1" : "my-auto"}`}
-          {...(onChange ? { onChange } : {})}
+              px-5 w-3.5 h-3.5 ${alignTop ? "mt-1" : "my-auto"}`}
         />
         {!noLabel && (
           <div>
@@ -549,7 +556,7 @@ export function SelectorFormField({
   const { setFieldValue } = useFormikContext();
 
   return (
-    <div className="mb-4">
+    <div>
       {label && <Label>{label}</Label>}
       {subtext && <SubLabel>{subtext}</SubLabel>}
       <div className="mt-2">
