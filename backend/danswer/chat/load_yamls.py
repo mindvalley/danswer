@@ -96,7 +96,17 @@ def load_personas_from_yaml(
             # Set specific overrides for image generation persona
             if persona.get("image_generation"):
                 llm_model_version_override = "gpt-4o"
-
+            
+            # Load Internet Search Tool. 
+            if persona.get("internet_search"):
+                internet_search_tool = (
+                    db_session.query(ToolDBModel)
+                    .filter(ToolDBModel.name == "InternetSearchTool")
+                    .first()
+                )
+                if internet_search_tool:
+                    tool_ids.append(internet_search_tool.id)
+                    
             existing_persona = (
                 db_session.query(Persona)
                 .filter(Persona.name == persona["name"])
