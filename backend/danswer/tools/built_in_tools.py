@@ -146,6 +146,7 @@ def auto_add_search_tool_to_personas(db_session: Session) -> None:
     db_session.commit()
     logger.notice("Completed adding SearchTool to relevant Personas.")
 
+
 _built_in_tools_cache: dict[int, Type[Tool]] | None = None
 
 

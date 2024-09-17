@@ -5,7 +5,7 @@ PROMPTS_YAML = "./danswer/chat/prompts.yaml"
 PERSONAS_YAML = "./danswer/chat/personas.yaml"
 INPUT_PROMPT_YAML = "./danswer/chat/input_prompts.yaml"
 
-NUM_RETURNED_HITS = os.environ.get("TOOL_SEARCH_NUM_RETURNED_HITS") or 50
+NUM_RETURNED_HITS = 50
 # Used for LLM filtering and reranking
 # We want this to be approximately the number of results we want to show on the first page
 # It cannot be too large due to cost and latency implications
