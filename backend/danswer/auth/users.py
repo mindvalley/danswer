@@ -231,6 +231,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         associate_by_email: bool = False,
         is_verified_by_default: bool = False,
     ) -> models.UOAP:
+        verify_email_in_whitelist(account_email)
         verify_email_domain(account_email)
 
         user = await super().oauth_callback(  # type: ignore

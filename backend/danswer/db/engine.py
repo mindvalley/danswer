@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
 
 from danswer.configs.app_configs import LOG_POSTGRES_CONN_COUNTS
 from danswer.configs.app_configs import LOG_POSTGRES_LATENCY
@@ -131,7 +130,6 @@ def init_sqlalchemy_engine(app_name: str) -> None:
 
 
 def get_sqlalchemy_engine() -> Engine:
-    connect_args = {"sslmode": "disable"}
     global _SYNC_ENGINE
     if _SYNC_ENGINE is None:
         connection_string = build_connection_string(
@@ -148,7 +146,6 @@ def get_sqlalchemy_engine() -> Engine:
 
 
 def get_sqlalchemy_async_engine() -> AsyncEngine:
-    connect_args = {"ssl": "disable"}
     global _ASYNC_ENGINE
     if _ASYNC_ENGINE is None:
         # underlying asyncpg cannot accept application_name directly in the connection string
