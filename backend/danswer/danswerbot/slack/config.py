@@ -19,7 +19,9 @@ def get_slack_bot_config_for_channel(
 
     slack_bot_configs = fetch_slack_bot_configs(db_session=db_session)
     for config in slack_bot_configs:
-        if channel_name in config.channel_config["channel_names"]:
+        if channel_name in config.channel_config[
+            "channel_names"
+        ] or channel_name.startswith("inc-"):
             return config
 
     return None
