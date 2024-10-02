@@ -21,11 +21,10 @@ def get_slack_bot_config_for_channel(
     for config in slack_bot_configs:
         if channel_name in config.channel_config["channel_names"]:
             return config
-        if any(
-            channel_name.startswith("inc-")
-            for channel_name in config.channel_config["channel_names"]
-        ):
-            return config
+        if channel_name.startswith("inc-"):
+            # return the config that contains the string "inc-" in the channel name
+            if "inc-" in config.channel_config["channel_names"]:
+                return config
 
     return None
 
