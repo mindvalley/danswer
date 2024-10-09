@@ -182,6 +182,10 @@ export interface AxeroCredentialJson {
   axero_api_token: string;
 }
 
+export interface AirtableCredentialJson {
+  airtable_access_token: string;
+}
+
 export interface MediaWikiCredentialJson {}
 export interface WikipediaCredentialJson extends MediaWikiCredentialJson {}
 
@@ -282,6 +286,7 @@ export const credentialTemplates: Record<ValidSources, any> = {
     access_key_id: "",
     secret_access_key: "",
   } as OCICredentialJson,
+  airtable: { airtable_access_token: "" } as AirtableCredentialJson,
   google_sites: null,
   file: null,
   wikipedia: null,
@@ -424,6 +429,9 @@ export const credentialDisplayNames: Record<string, string> = {
   // Axero
   base_url: "Axero Base URL",
   axero_api_token: "Axero API Token",
+
+  // Airtable
+  airtable_access_token: "Airtable Access Token",
 };
 export function getDisplayNameForCredentialKey(key: string): string {
   return credentialDisplayNames[key] || key;

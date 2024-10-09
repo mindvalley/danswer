@@ -212,6 +212,7 @@ export interface UserGroup {
 }
 
 const validSources = [
+  "airtable",
   "web",
   "github",
   "gitlab",

@@ -36,6 +36,7 @@ import {
   OCIStorageIcon,
   GoogleStorageIcon,
   ColorSlackIcon,
+  AirtableIcon,
 } from "@/components/icons/icons";
 import { ValidSources } from "./types";
 import {
@@ -276,6 +277,12 @@ const SOURCE_METADATA_MAP: SourceMap = {
     icon: GlobeIcon,
     displayName: "Ingestion",
     category: SourceCategory.Other,
+  },
+  airtable: {
+    icon: AirtableIcon,
+    displayName: "Airtable",
+    category: SourceCategory.Wiki,
+    docs: "https://docs.danswer.dev/connectors/airtable",
   },
   // currently used for the Internet Search tool docs, which is why
   // a globe is used

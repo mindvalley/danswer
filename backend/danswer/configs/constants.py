@@ -66,6 +66,7 @@ CELERY_VESPA_SYNC_BEAT_LOCK_TIMEOUT = 60
 
 class DocumentSource(str, Enum):
     # Special case, document passed in via Danswer APIs without specifying a source type
+    AIRTABLE = "airtable"
     INGESTION_API = "ingestion_api"
     SLACK = "slack"
     WEB = "web"
