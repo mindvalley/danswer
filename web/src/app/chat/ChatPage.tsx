@@ -106,6 +106,7 @@ import {
   orderAssistantsForUser,
 } from "@/lib/assistants/utils";
 import BlurBackground from "./shared_chat_search/BlurBackground";
+import { NoAssistantModal } from "@/components/modals/NoAssistantModal";
 
 const TEMP_USER_MESSAGE_ID = -1;
 const TEMP_ASSISTANT_MESSAGE_ID = -2;
@@ -139,7 +140,7 @@ export function ChatPage({
 
   const [showApiKeyModal, setShowApiKeyModal] = useState(true);
 
-  const { user, refreshUser, isLoadingUser } = useUser();
+  const { user, refreshUser, isAdmin, isLoadingUser } = useUser();
 
   const existingChatIdRaw = searchParams.get("chatId");
   const currentPersonaId = searchParams.get(SEARCH_PARAM_NAMES.PERSONA_ID);
@@ -187,11 +188,11 @@ export function ChatPage({
           )
         : undefined
   );
-
   // Gather default temperature settings
   const search_param_temperature = searchParams.get(
     SEARCH_PARAM_NAMES.TEMPERATURE
   );
+
   const defaultTemperature = search_param_temperature
     ? parseFloat(search_param_temperature)
     : selectedAssistant?.tools.some(
@@ -225,6 +226,8 @@ export function ChatPage({
     selectedAssistant ||
     finalAssistants[0] ||
     availableAssistants[0];
+
+  const noAssistants = liveAssistant == null || liveAssistant == undefined;
 
   useEffect(() => {
     if (!loadedIdSessionRef.current && !currentPersonaId) {
@@ -694,11 +697,12 @@ export function ChatPage({
 
   useEffect(() => {
     if (messageHistory.length === 0 && chatSessionIdRef.current === null) {
+      // Select from available assistants so shared assistants appear.
       setSelectedAssistant(
-        finalAssistants.find((persona) => persona.id === defaultAssistantId)
+        availableAssistants.find((persona) => persona.id === defaultAssistantId)
       );
     }
-  }, [defaultAssistantId, finalAssistants, messageHistory.length]);
+  }, [defaultAssistantId, availableAssistants, messageHistory.length]);
 
   const [
     selectedDocuments,
@@ -773,7 +777,11 @@ export function ChatPage({
 
   const handleInputResize = () => {
     setTimeout(() => {
-      if (inputRef.current && lastMessageRef.current) {
+      if (
+        inputRef.current &&
+        lastMessageRef.current &&
+        !waitForScrollRef.current
+      ) {
         const newHeight: number =
           inputRef.current?.getBoundingClientRect().height!;
         const heightDifference = newHeight - previousHeight.current;
@@ -802,8 +810,11 @@ export function ChatPage({
   };
 
   const clientScrollToBottom = (fast?: boolean) => {
+    waitForScrollRef.current = true;
+
     setTimeout(() => {
       if (!endDivRef.current || !scrollableDivRef.current) {
+        console.error("endDivRef or scrollableDivRef not found");
         return;
       }
 
@@ -814,6 +825,7 @@ export function ChatPage({
 
       // Check if all messages are currently rendered
       if (currentVisibleRange.end < messageHistory.length) {
+        console.log("Updating visible range");
         // Update visible range to include the last messages
         updateCurrentVisibleRange({
           start: Math.max(
@@ -831,8 +843,9 @@ export function ChatPage({
             behavior: fast ? "auto" : "smooth",
           });
           setHasPerformedInitialScroll(true);
-        }, 0);
+        }, 100);
       } else {
+        console.log("All messages are already rendered, scrolling immediately");
         // If all messages are already rendered, scroll immediately
         endDivRef.current.scrollIntoView({
           behavior: fast ? "auto" : "smooth",
@@ -840,6 +853,11 @@ export function ChatPage({
         setHasPerformedInitialScroll(true);
       }
     }, 50);
+
+    // Reset waitForScrollRef after 1.5 seconds
+    setTimeout(() => {
+      waitForScrollRef.current = false;
+    }, 1500);
   };
 
   const distance = 500; // distance that should "engage" the scroll
@@ -1549,6 +1567,7 @@ export function ChatPage({
     toggle(false);
   };
 
+  const waitForScrollRef = useRef(false);
   const sidebarElementRef = useRef<HTMLDivElement>(null);
 
   useSidebarVisibility({
@@ -1567,6 +1586,7 @@ export function ChatPage({
     endDivRef,
     distance,
     debounceNumber,
+    waitForScrollRef,
   });
 
   // Virtualization + Scrolling related effects and functions
@@ -1695,6 +1715,9 @@ export function ChatPage({
   };
 
   useEffect(() => {
+    if (noAssistants) {
+      return;
+    }
     const includes = checkAnyAssistantHasSearch(
       messageHistory,
       availableAssistants,
@@ -1704,6 +1727,9 @@ export function ChatPage({
   }, [messageHistory, availableAssistants, liveAssistant]);
 
   const [retrievalEnabled, setRetrievalEnabled] = useState(() => {
+    if (noAssistants) {
+      return false;
+    }
     return checkAnyAssistantHasSearch(
       messageHistory,
       availableAssistants,
@@ -1774,11 +1800,13 @@ export function ChatPage({
     <>
       <HealthCheckBanner />
 
-      {showApiKeyModal && !shouldShowWelcomeModal && (
+      {showApiKeyModal && !shouldShowWelcomeModal ? (
         <ApiKeyModal
           hide={() => setShowApiKeyModal(false)}
           setPopup={setPopup}
         />
+      ) : (
+        noAssistants && <NoAssistantModal isAdmin={isAdmin} />
       )}
 
       {/* ChatPopup is a custom popup that displays a admin-specified message on initial user visit. 
@@ -2157,7 +2185,6 @@ export function ChatPage({
                                       query={
                                         messageHistory[i]?.query || undefined
                                       }
-                                      personaName={liveAssistant.name}
                                       citedDocuments={getCitedDocumentsFromMessage(
                                         message
                                       )}
@@ -2219,9 +2246,6 @@ export function ChatPage({
                                             }
                                           : undefined
                                       }
-                                      isCurrentlyShowingRetrieved={
-                                        isShowingRetrieved
-                                      }
                                       handleShowRetrieved={(messageNumber) => {
                                         if (isShowingRetrieved) {
                                           setSelectedMessageForDocDisplay(null);
@@ -2271,7 +2295,6 @@ export function ChatPage({
                                     <AIMessage
                                       currentPersona={liveAssistant}
                                       messageId={message.messageId}
-                                      personaName={liveAssistant.name}
                                       content={
                                         <p className="text-red-700 text-sm my-auto">
                                           {message.message}
@@ -2319,7 +2342,6 @@ export function ChatPage({
                                     alternativeAssistant
                                   }
                                   messageId={null}
-                                  personaName={liveAssistant.name}
                                   content={
                                     <div
                                       key={"Generating"}
@@ -2339,7 +2361,6 @@ export function ChatPage({
                                 <AIMessage
                                   currentPersona={liveAssistant}
                                   messageId={-1}
-                                  personaName={liveAssistant.name}
                                   content={
                                     <p className="text-red-700 text-sm my-auto">
                                       {loadingError}

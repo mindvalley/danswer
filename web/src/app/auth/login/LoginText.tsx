@@ -6,9 +6,9 @@ import { SettingsContext } from "@/components/settings/SettingsProvider";
 export const LoginText = () => {
   const settings = useContext(SettingsContext);
 
-  if (!settings) {
-    throw new Error("SettingsContext is not available");
-  }
+  // if (!settings) {
+  //   throw new Error("SettingsContext is not available");
+  // }
 
   return (
     <>Log In to Eve<sup className="ai-superscript">AI</sup></>

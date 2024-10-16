@@ -18,6 +18,7 @@ from danswer.configs.app_configs import APP_PORT
 from danswer.configs.app_configs import AUTH_TYPE
 from danswer.configs.app_configs import DISABLE_GENERATIVE_AI
 from danswer.configs.app_configs import LOG_ENDPOINT_LATENCY
+from danswer.configs.app_configs import MULTI_TENANT
 from danswer.configs.app_configs import OAUTH_CLIENT_ID
 from danswer.configs.app_configs import OAUTH_CLIENT_SECRET
 from danswer.configs.app_configs import POSTGRES_API_SERVER_POOL_OVERFLOW
@@ -70,6 +71,7 @@ from danswer.server.token_rate_limits.api import (
     router as token_rate_limit_settings_router,
 )
 from danswer.setup import setup_danswer
+from danswer.setup import setup_multitenant_danswer
 from danswer.utils.logger import setup_logger
 from danswer.utils.telemetry import get_or_generate_uuid
 from danswer.utils.telemetry import optional_telemetry
@@ -157,6 +159,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     verify_auth = fetch_versioned_implementation(
         "danswer.auth.users", "verify_auth_setting"
     )
+
     # Will throw exception if an issue is found
     verify_auth()
 
@@ -169,11 +172,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     # fill up Postgres connection pools
     await warm_up_connections()
 
-    # We cache this at the beginning so there is no delay in the first telemetry
-    get_or_generate_uuid()
+    if not MULTI_TENANT:
+        # We cache this at the beginning so there is no delay in the first telemetry
+        get_or_generate_uuid()
 
-    with Session(engine) as db_session:
-        setup_danswer(db_session)
+        with Session(engine) as db_session:
+            setup_danswer(db_session)
+
+    else:
+        setup_multitenant_danswer()
 
     optional_telemetry(record_type=RecordType.VERSION, data={"version": __version__})
     yield

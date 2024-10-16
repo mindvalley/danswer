@@ -4,6 +4,7 @@ from httpx_oauth.clients.openid import OpenID
 from danswer.auth.users import auth_backend
 from danswer.auth.users import fastapi_users
 from danswer.configs.app_configs import AUTH_TYPE
+from danswer.configs.app_configs import MULTI_TENANT
 from danswer.configs.app_configs import OAUTH_CLIENT_ID
 from danswer.configs.app_configs import OAUTH_CLIENT_SECRET
 from danswer.configs.app_configs import USER_AUTH_SECRET
@@ -24,6 +25,7 @@ from ee.danswer.server.enterprise_settings.api import (
     basic_router as enterprise_settings_router,
 )
 from ee.danswer.server.manage.standard_answer import router as standard_answer_router
+from ee.danswer.server.middleware.tenant_tracking import add_tenant_id_middleware
 from ee.danswer.server.query_and_chat.chat_backend import (
     router as chat_router,
 )
@@ -53,6 +55,9 @@ def get_application() -> FastAPI:
 
     application = get_application_base()
 
+    if MULTI_TENANT:
+        add_tenant_id_middleware(application, logger)
+
     if AUTH_TYPE == AuthType.OIDC:
         include_router_with_global_prefix_prepended(
             application,
@@ -80,8 +85,6 @@ def get_application() -> FastAPI:
 
     # RBAC / group access control
     include_router_with_global_prefix_prepended(application, user_group_router)
-    # Tenant management
-    include_router_with_global_prefix_prepended(application, tenants_router)
     # Analytics endpoints
     include_router_with_global_prefix_prepended(application, analytics_router)
     include_router_with_global_prefix_prepended(application, query_history_router)
@@ -101,6 +104,10 @@ def get_application() -> FastAPI:
     )
     include_router_with_global_prefix_prepended(application, enterprise_settings_router)
     include_router_with_global_prefix_prepended(application, usage_export_router)
+
+    if MULTI_TENANT:
+        # Tenant management
+        include_router_with_global_prefix_prepended(application, tenants_router)
 
     # Ensure all routes have auth enabled or are explicitly marked as public
     check_ee_router_auth(application)

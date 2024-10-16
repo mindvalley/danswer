@@ -14,6 +14,7 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { LoginText } from "./LoginText";
 import { getSecondsUntilExpiration } from "@/lib/time";
+import AuthFlowContainer from "@/components/auth/AuthFlowContainer";
 
 const Page = async ({
   searchParams,
@@ -51,7 +52,6 @@ const Page = async ({
     if (authTypeMetadata?.requiresVerification && !currentUser.is_verified) {
       return redirect("/auth/waiting-on-verification");
     }
-
     return redirect("/");
   }
 
@@ -70,7 +70,7 @@ const Page = async ({
   }
 
   return (
-    <main>
+    <AuthFlowContainer>
       <div className="absolute top-10x w-full">
         <HealthCheckBanner />
       </div>
@@ -109,7 +109,7 @@ const Page = async ({
           )}
         </div>
       </div>
-    </main>
+    </AuthFlowContainer>
   );
 };
 

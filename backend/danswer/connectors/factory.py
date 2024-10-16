@@ -2,6 +2,7 @@ from typing import Any
 from typing import Type
 
 from danswer.configs.constants import DocumentSource
+from danswer.configs.constants import DocumentSourceRequiringTenantContext
 from danswer.connectors.airtable.connector import AirtableConnector
 from danswer.connectors.asana.connector import AsanaConnector
 from danswer.connectors.axero.connector import AxeroConnector
@@ -135,8 +136,13 @@ def instantiate_connector(
     input_type: InputType,
     connector_specific_config: dict[str, Any],
     credential: Credential,
+    tenant_id: str | None = None,
 ) -> BaseConnector:
     connector_class = identify_connector_class(source, input_type)
+
+    if source in DocumentSourceRequiringTenantContext:
+        connector_specific_config["tenant_id"] = tenant_id
+
     connector = connector_class(**connector_specific_config)
     new_credentials = connector.load_credentials(credential.credential_json)
 
