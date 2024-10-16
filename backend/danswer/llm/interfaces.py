@@ -2,14 +2,13 @@ import abc
 from collections.abc import Iterator
 from typing import Literal
 
+from danswer.configs.app_configs import DISABLE_GENERATIVE_AI
+from danswer.configs.app_configs import LOG_DANSWER_MODEL_INTERACTIONS
+from danswer.utils.logger import setup_logger
 from langchain.schema.language_model import LanguageModelInput
 from langchain_core.messages import AIMessageChunk
 from langchain_core.messages import BaseMessage
 from pydantic import BaseModel
-
-from danswer.configs.app_configs import DISABLE_GENERATIVE_AI
-from danswer.configs.app_configs import LOG_DANSWER_MODEL_INTERACTIONS
-from danswer.utils.logger import setup_logger
 
 
 logger = setup_logger()
@@ -24,7 +23,7 @@ class LLMConfig(BaseModel):
     api_key: str | None = None
     api_base: str | None = None
     api_version: str | None = None
-
+    deployment_name: str | None = None
     # This disables the "model_" protected namespace for pydantic
     model_config = {"protected_namespaces": ()}
 
@@ -53,12 +52,6 @@ def log_prompt(prompt: LanguageModelInput) -> None:
                 logger.debug(f"Message {ind}:\n{msg.content}")
     if isinstance(prompt, str):
         logger.debug(f"Prompt:\n{prompt}")
-
-
-class LLMConfig(BaseModel):
-    model_provider: str
-    model_name: str
-    temperature: float
 
 
 class LLM(abc.ABC):

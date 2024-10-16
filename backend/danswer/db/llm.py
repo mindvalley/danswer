@@ -62,7 +62,8 @@ def upsert_cloud_embedding_provider(
 
 
 def upsert_llm_provider(
-    llm_provider: LLMProviderUpsertRequest, db_session: Session
+    llm_provider: LLMProviderUpsertRequest,
+    db_session: Session,
 ) -> FullLLMProvider:
     existing_llm_provider = db_session.scalar(
         select(LLMProviderModel).where(LLMProviderModel.name == llm_provider.name)
@@ -82,6 +83,7 @@ def upsert_llm_provider(
     existing_llm_provider.model_names = llm_provider.model_names
     existing_llm_provider.is_public = llm_provider.is_public
     existing_llm_provider.display_model_names = llm_provider.display_model_names
+    existing_llm_provider.deployment_name = llm_provider.deployment_name
 
     if not existing_llm_provider.id:
         # If its not already in the db, we need to generate an ID by flushing
