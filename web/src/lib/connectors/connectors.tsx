@@ -943,6 +943,7 @@ For example, specifying .*-support.* as a "channel" will cause the connector to 
           "The name or ID of the specific table within the Airtable base.",
       },
     ],
+    advanced_values: [],
   },
 };
 export function createConnectorInitialValues(
