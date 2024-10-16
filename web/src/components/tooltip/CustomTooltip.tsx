@@ -46,6 +46,7 @@ export const CustomTooltip = ({
   showTick = false,
   delay = 500,
   position = "bottom",
+  disabled = false,
 }: {
   medium?: boolean;
   content: string | ReactNode;
@@ -58,6 +59,7 @@ export const CustomTooltip = ({
   wrap?: boolean;
   citation?: boolean;
   position?: "top" | "bottom";
+  disabled?: boolean;
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
@@ -119,9 +121,10 @@ export const CustomTooltip = ({
         {children}
       </span>
       {isVisible &&
+        !disabled &&
         createPortal(
           <div
-            className={`fixed z-[1000] ${citation ? "max-w-[350px]" : "w-40"} ${
+            className={`min-w-8 fixed z-[1000] ${citation ? "max-w-[350px]" : "w-40"} ${
               large ? (medium ? "w-88" : "w-96") : line && "max-w-64 w-auto"
             } 
             transform -translate-x-1/2 text-sm 

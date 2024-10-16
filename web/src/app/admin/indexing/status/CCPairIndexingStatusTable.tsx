@@ -23,6 +23,7 @@ import {
   FiSettings,
   FiLock,
   FiUnlock,
+  FiRefreshCw,
 } from "react-icons/fi";
 import { Tooltip } from "@/components/tooltip/Tooltip";
 import { SourceIcon } from "@/components/SourceIcon";
@@ -232,13 +233,21 @@ function ConnectorRow({
       <TableCell>{getActivityBadge()}</TableCell>
       {isPaidEnterpriseFeaturesEnabled && (
         <TableCell>
-          {ccPairsIndexingStatus.public_doc ? (
+          {ccPairsIndexingStatus.access_type === "public" ? (
             <Badge
               size="md"
               color={isEditable ? "green" : "gray"}
               icon={FiUnlock}
             >
               Public
+            </Badge>
+          ) : ccPairsIndexingStatus.access_type === "sync" ? (
+            <Badge
+              size="md"
+              color={isEditable ? "orange" : "gray"}
+              icon={FiRefreshCw}
+            >
+              Sync
             </Badge>
           ) : (
             <Badge size="md" color={isEditable ? "blue" : "gray"} icon={FiLock}>
@@ -334,7 +343,8 @@ export function CCPairIndexingStatusTable({
           (status) =>
             status.cc_pair_status === ConnectorCredentialPairStatus.ACTIVE
         ).length,
-        public: statuses.filter((status) => status.public_doc).length,
+        public: statuses.filter((status) => status.access_type === "public")
+          .length,
         totalDocsIndexed: statuses.reduce(
           (sum, status) => sum + status.docs_indexed,
           0
@@ -420,7 +430,7 @@ export function CCPairIndexingStatusTable({
               credential_json: {},
               admin_public: false,
             },
-            public_doc: true,
+            access_type: "public",
             docs_indexed: 1000,
             last_success: "2023-07-01T12:00:00Z",
             last_finished_status: "success",
