@@ -1,4 +1,4 @@
-FROM python:3.11.7-slim-bookworm
+FROM nvidia/cuda:12.6.2-runtime-ubuntu22.04
 
 LABEL com.danswer.maintainer="founders@danswer.ai"
 LABEL com.danswer.description="This image is for the Danswer model server which runs all of the \
