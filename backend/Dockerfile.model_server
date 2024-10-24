@@ -11,6 +11,11 @@ ARG DANSWER_VERSION=0.3-dev
 ENV DANSWER_VERSION=${DANSWER_VERSION} \
     DANSWER_RUNNING_IN_DOCKER="true"
 
+    # Set noninteractive mode for tzdata installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Set your desired timezone
+ENV TZ=Etc/UTC
 
 RUN echo "DANSWER_VERSION: ${DANSWER_VERSION}"
 
