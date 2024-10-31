@@ -1,4 +1,4 @@
-FROM python:3.11.7-slim-bookworm
+FROM nvidia/cuda:12.6.2-base-ubuntu22.04
 
 LABEL com.danswer.maintainer="founders@danswer.ai"
 LABEL com.danswer.description="This image is for the Danswer model server which runs all of the \
@@ -11,6 +11,15 @@ ARG DANSWER_VERSION=0.3-dev
 ENV DANSWER_VERSION=${DANSWER_VERSION} \
     DANSWER_RUNNING_IN_DOCKER="true"
 
+ENV DEBIAN_FRONTEND=noninteractive
+
+ENV TZ=Etc/UTC
+
+RUN apt-get update && apt install software-properties-common -y
+
+RUN add-apt-repository ppa:deadsnakes/ppa -y
+
+RUN apt-get update && apt-get install -y curl gpg python3.11 python3-pip
 
 RUN echo "DANSWER_VERSION: ${DANSWER_VERSION}"
 
@@ -20,8 +29,7 @@ RUN pip install --no-cache-dir --upgrade \
         --timeout 30 \
         -r /tmp/requirements.txt
 
-RUN apt-get remove -y --allow-remove-essential perl-base && \
-    apt-get autoremove -y
+RUN apt-get autoremove -y
 
 # Pre-downloading models for setups with limited egress
 # Download tokenizers, distilbert for the Danswer model
