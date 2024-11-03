@@ -76,3 +76,4 @@ ultimate_sitemap_parser==0.5
 pyairtable==3.0.0a3
 anthropic[vertex]==0.36.1
 google-cloud-aiplatform==1.70.0
+openai==1.53.0
