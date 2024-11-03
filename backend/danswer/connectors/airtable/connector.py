@@ -3,12 +3,13 @@ from typing import Any
 
 from danswer.configs.app_configs import INDEX_BATCH_SIZE
 from danswer.configs.constants import DocumentSource
-from danswer.connectors.interfaces import GenerateDocumentsOutput
-from danswer.connectors.interfaces import LoadConnector
-from danswer.connectors.interfaces import PollConnector
-from danswer.connectors.interfaces import SecondsSinceUnixEpoch
-from danswer.connectors.models import Document
-from danswer.connectors.models import Section
+from danswer.connectors.interfaces import (
+    GenerateDocumentsOutput,
+    LoadConnector,
+    PollConnector,
+    SecondsSinceUnixEpoch,
+)
+from danswer.connectors.models import Document, Section
 from pyairtable import Api as AirtableApi
 
 
@@ -34,6 +35,23 @@ class AirtableConnector(LoadConnector, PollConnector):
 
         return None
 
+    def json_to_text(self, obj: Any, indent: int = 0) -> str:
+        """
+        Recursively converts JSON object to plain text.
+        """
+        text = ""
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                text += "  " * indent + str(key) + ":\n"
+                text += self.json_to_text(value, indent + 1)
+        elif isinstance(obj, list):
+            for item in obj:
+                text += self.json_to_text(item, indent)
+        else:
+            text += "  " * indent + str(obj) + "\n"
+
+        return text
+
     def poll_source(
         self, start: SecondsSinceUnixEpoch | None, end: SecondsSinceUnixEpoch | None
     ) -> GenerateDocumentsOutput:
@@ -41,7 +59,10 @@ class AirtableConnector(LoadConnector, PollConnector):
             raise AirtableClientNotSetUpError()
 
         table = self.airtable_client.table(self.base_id, self.table_name_or_id)
-        all_records = table.all()
+
+        table_name = table.schema().name
+        base_name = self.airtable_client.base(self.base_id, validate=True).name
+        all_records = table.all(cell_format="string", time_zone="UTC", user_locale="en")
 
         record_documents = []
         for record in all_records:
@@ -50,7 +71,7 @@ class AirtableConnector(LoadConnector, PollConnector):
                 sections=[
                     Section(
                         link=f"https://airtable.com/{self.base_id}/{self.table_name_or_id}/",
-                        text=json.dumps(record.get("fields")),
+                        text=self.json_to_text(record.get("fields")),
                     )
                 ],
                 source=DocumentSource.AIRTABLE,
@@ -58,6 +79,8 @@ class AirtableConnector(LoadConnector, PollConnector):
                 metadata={
                     "type": "airtable",
                     "created_time": record.get("createdTime"),
+                    "table_name": table_name,
+                    "base_name": base_name,
                 },
             )
             record_documents.append(record_document)
