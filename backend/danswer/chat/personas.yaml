@@ -19,7 +19,7 @@ personas:
     # Default number of chunks to include as context, set to 0 to disable retrieval
     # Remove the field to set to the system default number of chunks/tokens to pass to Gen AI
     # Each chunk is 512 tokens long
-    num_chunks: 20
+    num_chunks: 50
     # Enable/Disable usage of the LLM chunk filter feature whereby each chunk is passed to the LLM to determine
     # if the chunk is useful or not towards the latest user query
     # This feature can be overriden for all personas via DISABLE_LLM_DOC_RELEVANCE env variable
@@ -80,7 +80,6 @@ personas:
     is_visible: true
     internet_search: true
 
-
   - id: 3
     name: "Art"
     description: >
@@ -92,8 +91,8 @@ personas:
     llm_filter_extraction: false
     recency_bias: "no_decay"
     document_sets: []
-    icon_shape: 234124 
+    icon_shape: 234124
     icon_color: "#9B59B6"
-    image_generation: true 
+    image_generation: true
     display_priority: 3
     is_visible: false

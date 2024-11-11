@@ -1,6 +1,3 @@
-from langchain.schema.messages import HumanMessage
-from langchain.schema.messages import SystemMessage
-
 from danswer.chat.models import LlmDoc
 from danswer.configs.model_configs import GEN_AI_SINGLE_USER_MESSAGE_EXPECTED_MAX_TOKENS
 from danswer.db.models import Persona
@@ -19,16 +16,20 @@ from danswer.prompts.constants import DEFAULT_IGNORE_STATEMENT
 from danswer.prompts.direct_qa_prompts import CITATIONS_PROMPT
 from danswer.prompts.direct_qa_prompts import CITATIONS_PROMPT_FOR_TOOL_CALLING
 from danswer.prompts.prompt_utils import add_date_time_to_prompt
+from danswer.prompts.prompt_utils import add_employee_context_to_prompt
 from danswer.prompts.prompt_utils import build_complete_context_str
 from danswer.prompts.prompt_utils import build_task_prompt_reminders
 from danswer.prompts.token_counts import ADDITIONAL_INFO_TOKEN_CNT
-from danswer.prompts.token_counts import (
-    CHAT_USER_PROMPT_WITH_CONTEXT_OVERHEAD_TOKEN_CNT,
-)
+from danswer.prompts.token_counts import CHAT_USER_PROMPT_WITH_CONTEXT_OVERHEAD_TOKEN_CNT
 from danswer.prompts.token_counts import CITATION_REMINDER_TOKEN_CNT
 from danswer.prompts.token_counts import CITATION_STATEMENT_TOKEN_CNT
 from danswer.prompts.token_counts import LANGUAGE_HINT_TOKEN_CNT
 from danswer.search.models import InferenceChunk
+from danswer.utils.logger import setup_logger
+from langchain.schema.messages import HumanMessage
+from langchain.schema.messages import SystemMessage
+
+logger = setup_logger()
 
 
 def get_prompt_tokens(prompt_config: PromptConfig) -> int:
@@ -117,12 +118,17 @@ def compute_max_llm_input_tokens(llm_config: LLMConfig) -> int:
 
 def build_citations_system_message(
     prompt_config: PromptConfig,
+    user_email: str | None = None,
 ) -> SystemMessage:
     system_prompt = prompt_config.system_prompt.strip()
     if prompt_config.include_citations:
         system_prompt += REQUIRE_CITATION_STATEMENT
     if prompt_config.datetime_aware:
         system_prompt = add_date_time_to_prompt(prompt_str=system_prompt)
+    if user_email:
+        system_prompt = add_employee_context_to_prompt(
+            prompt_str=system_prompt, user_email=user_email
+        )
 
     return SystemMessage(content=system_prompt)
 
