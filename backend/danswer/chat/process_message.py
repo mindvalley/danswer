@@ -4,8 +4,6 @@ from collections.abc import Iterator
 from functools import partial
 from typing import cast
 
-from sqlalchemy.orm import Session
-
 from danswer.chat.chat_utils import create_chat_chain
 from danswer.chat.models import AllCitations
 from danswer.chat.models import CitationInfo
@@ -80,12 +78,8 @@ from danswer.tools.force import ForceUseTool
 from danswer.tools.images.image_generation_tool import IMAGE_GENERATION_RESPONSE_ID
 from danswer.tools.images.image_generation_tool import ImageGenerationResponse
 from danswer.tools.images.image_generation_tool import ImageGenerationTool
-from danswer.tools.internet_search.internet_search_tool import (
-    INTERNET_SEARCH_RESPONSE_ID,
-)
-from danswer.tools.internet_search.internet_search_tool import (
-    internet_search_response_to_search_docs,
-)
+from danswer.tools.internet_search.internet_search_tool import INTERNET_SEARCH_RESPONSE_ID
+from danswer.tools.internet_search.internet_search_tool import internet_search_response_to_search_docs
 from danswer.tools.internet_search.internet_search_tool import InternetSearchResponse
 from danswer.tools.internet_search.internet_search_tool import InternetSearchTool
 from danswer.tools.models import DynamicSchemaInfo
@@ -101,6 +95,7 @@ from danswer.tools.utils import compute_all_tool_tokens
 from danswer.tools.utils import explicit_tool_calling_supported
 from danswer.utils.logger import setup_logger
 from danswer.utils.timing import log_generator_function_time
+from sqlalchemy.orm import Session
 
 logger = setup_logger()
 
@@ -285,6 +280,8 @@ def stream_chat_message_objects(
 
     try:
         user_id = user.id if user is not None else None
+
+        user_email = user.email if user is not None else None
 
         chat_session = get_chat_session_by_id(
             chat_session_id=new_msg_req.chat_session_id,
@@ -628,6 +625,7 @@ def stream_chat_message_objects(
 
         # LLM prompt building, response capturing, etc.
         answer = Answer(
+            user_email=user_email,
             is_connected=is_connected,
             question=final_msg.message,
             latest_query_files=latest_query_files,

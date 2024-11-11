@@ -72,6 +72,12 @@ VALID_EMAIL_DOMAINS = (
     if _VALID_EMAIL_DOMAINS_STR
     else []
 )
+
+# Airtable Config To Get MV Employee Info
+AIRTABLE_API_TOKEN = os.environ.get("AIRTABLE_API_TOKEN")
+AIRTABLE_EMPLOYEE_BASE_ID = os.environ.get("AIRTABLE_EMPLOYEE_BASE_ID")
+AIRTABLE_EMPLOYEE_TABLE_NAME_OR_ID = os.environ.get("AIRTABLE_EMPLOYEE_TABLE_NAME_OR_ID")
+
 # OAuth Login Flow
 # Used for both Google OAuth2 and OIDC flows
 OAUTH_CLIENT_ID = (

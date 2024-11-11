@@ -4,10 +4,6 @@ from typing import Any
 from typing import cast
 from uuid import uuid4
 
-from langchain.schema.messages import BaseMessage
-from langchain_core.messages import AIMessageChunk
-from langchain_core.messages import HumanMessage
-
 from danswer.chat.chat_utils import llm_doc_from_inference_section
 from danswer.chat.models import AnswerQuestionPossibleReturn
 from danswer.chat.models import CitationInfo
@@ -24,9 +20,7 @@ from danswer.llm.answering.models import StreamProcessor
 from danswer.llm.answering.prompts.build import AnswerPromptBuilder
 from danswer.llm.answering.prompts.build import default_build_system_message
 from danswer.llm.answering.prompts.build import default_build_user_message
-from danswer.llm.answering.prompts.citations_prompt import (
-    build_citations_system_message,
-)
+from danswer.llm.answering.prompts.citations_prompt import build_citations_system_message
 from danswer.llm.answering.prompts.citations_prompt import build_citations_user_message
 from danswer.llm.answering.prompts.quotes_prompt import build_quotes_user_message
 from danswer.llm.answering.stream_processing.citation_processing import (
@@ -59,16 +53,16 @@ from danswer.tools.search.search_tool import SearchResponseSummary
 from danswer.tools.search.search_tool import SearchTool
 from danswer.tools.tool import Tool
 from danswer.tools.tool import ToolResponse
-from danswer.tools.tool_runner import (
-    check_which_tools_should_run_for_non_tool_calling_llm,
-)
+from danswer.tools.tool_runner import check_which_tools_should_run_for_non_tool_calling_llm
 from danswer.tools.tool_runner import ToolCallFinalResult
 from danswer.tools.tool_runner import ToolCallKickoff
 from danswer.tools.tool_runner import ToolRunner
 from danswer.tools.tool_selection import select_single_tool_for_non_tool_calling_llm
 from danswer.tools.utils import explicit_tool_calling_supported
 from danswer.utils.logger import setup_logger
-
+from langchain.schema.messages import BaseMessage
+from langchain_core.messages import AIMessageChunk
+from langchain_core.messages import HumanMessage
 
 logger = setup_logger()
 
@@ -99,6 +93,7 @@ logger = setup_logger()
 class Answer:
     def __init__(
         self,
+        user_email: str,
         question: str,
         answer_style_config: AnswerStyleConfig,
         llm: LLM,
@@ -125,7 +120,7 @@ class Answer:
             raise ValueError(
                 "Cannot provide both `message_history` and `single_message_history`"
             )
-
+        self.user_email = user_email
         self.question = question
         self.is_connected: Callable[[], bool] | None = is_connected
 
@@ -166,7 +161,7 @@ class Answer:
     ) -> None:
         if self.answer_style_config.citation_config:
             prompt_builder.update_system_prompt(
-                build_citations_system_message(self.prompt_config)
+                build_citations_system_message(self.prompt_config, self.user_email)
             )
             prompt_builder.update_user_prompt(
                 build_citations_user_message(
