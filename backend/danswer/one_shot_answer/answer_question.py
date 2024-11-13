@@ -2,8 +2,6 @@ from collections.abc import Callable
 from collections.abc import Iterator
 from typing import cast
 
-from sqlalchemy.orm import Session
-
 from danswer.chat.chat_utils import reorganize_citations
 from danswer.chat.models import CitationInfo
 from danswer.chat.models import DanswerAnswerPiece
@@ -62,6 +60,7 @@ from danswer.tools.tool_runner import ToolCallKickoff
 from danswer.utils.logger import setup_logger
 from danswer.utils.timing import log_generator_function_time
 from ee.danswer.server.query_and_chat.utils import create_temporary_persona
+from sqlalchemy.orm import Session
 
 logger = setup_logger()
 
@@ -108,6 +107,8 @@ def stream_answer_objects(
     4. [always] Details on the final AI response message that is created
     """
     user_id = user.id if user is not None else None
+    user_email = user.email if user is not None else None
+
     query_msg = query_req.messages[-1]
     history = query_req.messages[:-1]
 
@@ -193,9 +194,11 @@ def stream_answer_objects(
     search_tool = SearchTool(
         db_session=db_session,
         user=user,
-        evaluation_type=LLMEvaluationType.SKIP
-        if DISABLE_LLM_DOC_RELEVANCE
-        else query_req.evaluation_type,
+        evaluation_type=(
+            LLMEvaluationType.SKIP
+            if DISABLE_LLM_DOC_RELEVANCE
+            else query_req.evaluation_type
+        ),
         persona=persona,
         retrieval_options=query_req.retrieval_options,
         prompt_config=prompt_config,
@@ -216,6 +219,7 @@ def stream_answer_objects(
 
     answer = Answer(
         question=query_msg.message,
+        user_email=user_email,
         answer_style_config=answer_config,
         prompt_config=PromptConfig.from_model(prompt),
         llm=get_main_llm_from_tuple(get_llms_for_persona(persona=persona)),
@@ -281,10 +285,10 @@ def stream_answer_objects(
 
                 if packet.response is not None:
                     for evaluation in packet.response:
-                        document_based_response[
-                            evaluation.document_id
-                        ] = RelevanceAnalysis(
-                            relevant=evaluation.relevant, content=evaluation.content
+                        document_based_response[evaluation.document_id] = (
+                            RelevanceAnalysis(
+                                relevant=evaluation.relevant, content=evaluation.content
+                            )
                         )
 
                 evaluation_response = DocumentRelevance(
