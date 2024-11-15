@@ -61,32 +61,40 @@ def add_date_time_to_prompt(prompt_str: str) -> str:
             + " "
             + BASIC_TIME_STR.format(datetime_info=get_current_llm_day_time())
         )
+
+
 # Initialize Redis client
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB_NUMBER)
+
 
 def add_employee_context_to_prompt(prompt_str: str, user_email: str) -> str:
     # Check Redis for cached employee context
     cached_context = redis_client.get(user_email)
     if cached_context:
         logger.info("Employee context retrieved from Redis.")
-        return prompt_str.replace(DANSWER_EMPLOYEE_REPLACEMENT, cached_context.decode('utf-8'))
+        return prompt_str.replace(
+            DANSWER_EMPLOYEE_REPLACEMENT, cached_context.decode("utf-8")
+        )
 
     airtable_client = AirtableApi(AIRTABLE_API_TOKEN)
-    all_employees = airtable_client.table(AIRTABLE_EMPLOYEE_BASE_ID, AIRTABLE_EMPLOYEE_TABLE_NAME_OR_ID).all()
+    all_employees = airtable_client.table(
+        AIRTABLE_EMPLOYEE_BASE_ID, AIRTABLE_EMPLOYEE_TABLE_NAME_OR_ID
+    ).all()
 
     for employee in all_employees:
         if "fields" in employee and "MV Email" in employee["fields"]:
             if employee["fields"]["MV Email"] == user_email:
                 logger.info(f"Employee found: {employee['fields']['Preferred Name']}")
-                employee_context = f"My Name: {employee['fields']['Preferred Name']}\nMy Title: {employee['fields']['Job Role']}\nMy City Office: {employee['fields']['City Office']}\nMy Division: {employee['fields']['Import: Division']}\nMy Manager: {employee['fields']['Reports To']}\nMy Department: {employee['fields']['Import: Department']}"
-                
+                employee_context = f"My Name: {employee['fields']['Preferred Name']}\nMy Title: {employee['fields']['Job Role']}\nMy City Office: {employee['fields']['City Office']}\nMy Division: {employee['fields']['Import: Division']}\nMy Manager: {employee['fields']['Reports To']}\nMy Department: {employee['fields']['Import: Department']}\nMy Employment Status: {employee['fields']['Employment Status']}"
+
                 # Store the employee context in Redis with a TTL of 30 days
-                redis_client.setex(user_email, 30 * 24 * 60 * 60, employee_context)
+                redis_client.setex(user_email, 7 * 24 * 60 * 60, employee_context)
                 break
-    
+
     if DANSWER_EMPLOYEE_REPLACEMENT in prompt_str:
         return prompt_str.replace(DANSWER_EMPLOYEE_REPLACEMENT, employee_context)
-    
+
+
 def build_task_prompt_reminders(
     prompt: Prompt | PromptConfig,
     use_language_hint: bool,

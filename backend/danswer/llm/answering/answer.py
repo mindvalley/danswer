@@ -20,7 +20,9 @@ from danswer.llm.answering.models import StreamProcessor
 from danswer.llm.answering.prompts.build import AnswerPromptBuilder
 from danswer.llm.answering.prompts.build import default_build_system_message
 from danswer.llm.answering.prompts.build import default_build_user_message
-from danswer.llm.answering.prompts.citations_prompt import build_citations_system_message
+from danswer.llm.answering.prompts.citations_prompt import (
+    build_citations_system_message,
+)
 from danswer.llm.answering.prompts.citations_prompt import build_citations_user_message
 from danswer.llm.answering.prompts.quotes_prompt import build_quotes_user_message
 from danswer.llm.answering.stream_processing.citation_processing import (
@@ -53,7 +55,9 @@ from danswer.tools.search.search_tool import SearchResponseSummary
 from danswer.tools.search.search_tool import SearchTool
 from danswer.tools.tool import Tool
 from danswer.tools.tool import ToolResponse
-from danswer.tools.tool_runner import check_which_tools_should_run_for_non_tool_calling_llm
+from danswer.tools.tool_runner import (
+    check_which_tools_should_run_for_non_tool_calling_llm,
+)
 from danswer.tools.tool_runner import ToolCallFinalResult
 from danswer.tools.tool_runner import ToolCallKickoff
 from danswer.tools.tool_runner import ToolRunner
@@ -183,6 +187,7 @@ class Answer:
                     context_docs=final_context_documents,
                     history_str=self.single_message_history or "",
                     prompt=self.prompt_config,
+                    user_email=self.user_email,
                 )
             )
 

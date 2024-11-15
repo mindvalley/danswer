@@ -5,13 +5,6 @@ from typing import cast
 from typing import Optional
 from typing import TypeVar
 
-from fastapi import HTTPException
-from retry import retry
-from slack_sdk import WebClient
-from slack_sdk.models.blocks import DividerBlock
-from slack_sdk.models.blocks import SectionBlock
-from sqlalchemy.orm import Session
-
 from danswer.configs.app_configs import DISABLE_GENERATIVE_AI
 from danswer.configs.danswerbot_configs import DANSWER_BOT_ANSWER_GENERATION_TIMEOUT
 from danswer.configs.danswerbot_configs import DANSWER_BOT_DISABLE_COT
@@ -54,6 +47,15 @@ from danswer.search.models import BaseFilters
 from danswer.search.models import RerankingDetails
 from danswer.search.models import RetrievalDetails
 from danswer.utils.logger import DanswerLoggingAdapter
+from danswer.utils.logger import setup_logger
+from fastapi import HTTPException
+from retry import retry
+from slack_sdk import WebClient
+from slack_sdk.models.blocks import DividerBlock
+from slack_sdk.models.blocks import SectionBlock
+from sqlalchemy.orm import Session
+
+logger = setup_logger()
 
 
 srl = SlackRateLimiter()
@@ -101,12 +103,11 @@ def handle_regular_answer(
     messages = message_info.thread_messages
     message_ts_to_respond_to = message_info.msg_to_respond
     is_bot_msg = message_info.is_bot_msg
-    user = None
-    if message_info.is_bot_dm:
-        if message_info.email:
-            engine = get_sqlalchemy_engine()
-            with Session(engine) as db_session:
-                user = get_user_by_email(message_info.email, db_session)
+
+    if message_info.email:
+        engine = get_sqlalchemy_engine()
+        with Session(engine) as db_session:
+            user = get_user_by_email(message_info.email, db_session)
 
     document_set_names: list[str] | None = None
     persona = slack_bot_config.persona if slack_bot_config else None
@@ -253,16 +254,20 @@ def handle_regular_answer(
         answer = _get_answer(
             DirectQARequest(
                 messages=messages,
-                multilingual_query_expansion=saved_search_settings.multilingual_expansion
-                if saved_search_settings
-                else None,
+                multilingual_query_expansion=(
+                    saved_search_settings.multilingual_expansion
+                    if saved_search_settings
+                    else None
+                ),
                 prompt_id=prompt.id if prompt else None,
                 persona_id=persona.id if persona is not None else 0,
                 retrieval_options=retrieval_details,
                 chain_of_thought=not disable_cot,
-                rerank_settings=RerankingDetails.from_db_model(saved_search_settings)
-                if saved_search_settings
-                else None,
+                rerank_settings=(
+                    RerankingDetails.from_db_model(saved_search_settings)
+                    if saved_search_settings
+                    else None
+                ),
             )
         )
     except Exception as e:
