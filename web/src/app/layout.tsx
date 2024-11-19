@@ -4,11 +4,7 @@ import {
   fetchEnterpriseSettingsSS,
   fetchSettingsSS,
 } from "@/components/settings/lib";
-import {
-  CUSTOM_ANALYTICS_ENABLED,
-  EE_ENABLED,
-  SERVER_SIDE_ONLY__PAID_ENTERPRISE_FEATURES_ENABLED,
-} from "@/lib/constants";
+import { SERVER_SIDE_ONLY__PAID_ENTERPRISE_FEATURES_ENABLED } from "@/lib/constants";
 import { SettingsProvider } from "@/components/settings/SettingsProvider";
 import { Metadata } from "next";
 import { buildClientUrl, fetchSS } from "@/lib/utilsSS";
@@ -20,6 +16,7 @@ import { HeaderTitle } from "@/components/header/HeaderTitle";
 import { Logo } from "@/components/Logo";
 import { UserProvider } from "@/components/user/UserProvider";
 import { ProviderContextProvider } from "@/components/chat_search/ProviderContext";
+import GTMProvider from "@/components/GTMProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -40,7 +37,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: enterpriseSettings?.application_name ?? "Eve AI",
-    description: "With Eve, you can quickly access the information you need to succeed in Mindvalley",
+    description:
+      "With Eve, you can quickly access the information you need to succeed in Mindvalley",
     icons: {
       icon: logoLocation,
     },
@@ -99,31 +97,22 @@ export default async function RootLayout({
         />
       </Head>
 
-      {CUSTOM_ANALYTICS_ENABLED && combinedSettings.customAnalyticsScript && (
-        <head>
-          <script
-            type="text/javascript"
-            dangerouslySetInnerHTML={{
-              __html: combinedSettings.customAnalyticsScript,
-            }}
-          />
-        </head>
-      )}
-
       <body className={`relative ${inter.variable} font-sans`}>
         <div
           className={`text-default min-h-screen bg-background ${
             // TODO: remove this once proper dark mode exists
             process.env.THEME_IS_DARK?.toLowerCase() === "true" ? "dark" : ""
-            }`}
+          }`}
         >
-          <UserProvider>
-            <ProviderContextProvider>
-              <SettingsProvider settings={combinedSettings}>
-                {children}
-              </SettingsProvider>
-            </ProviderContextProvider>
-          </UserProvider>
+          <GTMProvider>
+            <UserProvider>
+              <ProviderContextProvider>
+                <SettingsProvider settings={combinedSettings}>
+                  {children}
+                </SettingsProvider>
+              </ProviderContextProvider>
+            </UserProvider>
+          </GTMProvider>
         </div>
       </body>
     </html>
