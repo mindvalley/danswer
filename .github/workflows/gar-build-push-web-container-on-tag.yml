@@ -64,3 +64,4 @@ jobs:
             us-docker.pkg.dev/${{ env.GarProjectID }}/${{ env.GarRepo }}/${{ env.GarImageName }}:latest
           build-args: |
             DANSWER_VERSION=${{ github.sha }}
+            NEXT_PUBLIC_DEFAULT_SIDEBAR_OPEN=true
