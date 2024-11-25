@@ -4,18 +4,19 @@ from typing import cast
 
 import redis
 from danswer.chat.models import LlmDoc
-from danswer.configs.app_configs import AIRTABLE_API_TOKEN
-from danswer.configs.app_configs import AIRTABLE_EMPLOYEE_BASE_ID
-from danswer.configs.app_configs import AIRTABLE_EMPLOYEE_TABLE_NAME_OR_ID
-from danswer.configs.app_configs import REDIS_DB_NUMBER
-from danswer.configs.app_configs import REDIS_HOST
-from danswer.configs.app_configs import REDIS_PORT
+from danswer.configs.app_configs import (
+    AIRTABLE_API_TOKEN,
+    AIRTABLE_EMPLOYEE_BASE_ID,
+    AIRTABLE_EMPLOYEE_TABLE_NAME_OR_ID,
+    REDIS_DB_NUMBER,
+    REDIS_HOST,
+    REDIS_PORT,
+)
 from danswer.configs.chat_configs import LANGUAGE_HINT
 from danswer.configs.constants import DocumentSource
 from danswer.db.models import Prompt
 from danswer.llm.answering.models import PromptConfig
-from danswer.prompts.chat_prompts import ADDITIONAL_INFO
-from danswer.prompts.chat_prompts import CITATION_REMINDER
+from danswer.prompts.chat_prompts import ADDITIONAL_INFO, CITATION_REMINDER
 from danswer.prompts.constants import CODE_BLOCK_PAT
 from danswer.search.models import InferenceChunk
 from danswer.utils.logger import setup_logger
@@ -85,7 +86,15 @@ def add_employee_context_to_prompt(prompt_str: str, user_email: str) -> str:
         if "fields" in employee and "MV Email" in employee["fields"]:
             if employee["fields"]["MV Email"] == user_email:
                 logger.info(f"Employee found: {employee['fields']['Preferred Name']}")
-                employee_context = f"My Name: {employee['fields']['Preferred Name']}\nMy Title: {employee['fields']['Job Role']}\nMy City Office: {employee['fields']['City Office']}\nMy Division: {employee['fields']['Import: Division']}\nMy Manager: {employee['fields']['Reports To']}\nMy Department: {employee['fields']['Import: Department']}\nMy Employment Status: {employee['fields']['Employment Status']}"
+                employee_context = (
+                    f"My Name: {employee['fields'].get('Preferred Name', None)}\n"
+                    f"My Title: {employee['fields'].get('Job Role', None)}\n"
+                    f"My City Office: {employee['fields'].get('City Office', None)}\n"
+                    f"My Division: {employee['fields'].get('Import: Division', None)}\n"
+                    f"My Manager: {employee['fields'].get('Reports To', None)}\n"
+                    f"My Department: {employee['fields'].get('Import: Department', None)}\n"
+                    f"My Employment Status: {employee['fields'].get('Employment Status', None)}"
+                )
 
                 # Store the employee context in Redis with a TTL of 30 days
                 redis_client.setex(user_email, 7 * 24 * 60 * 60, employee_context)
