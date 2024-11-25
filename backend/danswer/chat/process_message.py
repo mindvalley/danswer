@@ -282,7 +282,7 @@ def stream_chat_message_objects(
         user_id = user.id if user is not None else None
 
         user_email = user.email if user is not None else None
-
+        
         chat_session = get_chat_session_by_id(
             chat_session_id=new_msg_req.chat_session_id,
             user_id=user_id,
