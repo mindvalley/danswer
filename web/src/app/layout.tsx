@@ -25,14 +25,14 @@ const inter = Inter({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  let logoLocation = buildClientUrl("/danswer.ico");
+  let logoLocation = buildClientUrl("/eve-favicon.svg");
   let enterpriseSettings: EnterpriseSettings | null = null;
   if (SERVER_SIDE_ONLY__PAID_ENTERPRISE_FEATURES_ENABLED) {
     enterpriseSettings = await (await fetchEnterpriseSettingsSS()).json();
     logoLocation =
       enterpriseSettings && enterpriseSettings.use_custom_logo
         ? "/api/enterprise-settings/logo"
-        : buildClientUrl("/danswer.ico");
+        : buildClientUrl("/eve-favicon.svg");
   }
 
   return {
