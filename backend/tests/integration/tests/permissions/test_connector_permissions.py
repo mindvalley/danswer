@@ -5,19 +5,20 @@ the permissions of the curator manipulating connectors.
 import pytest
 from requests.exceptions import HTTPError
 
+from danswer.db.enums import AccessType
 from danswer.server.documents.models import DocumentSource
 from tests.integration.common_utils.managers.connector import ConnectorManager
-from tests.integration.common_utils.managers.user import TestUser
+from tests.integration.common_utils.managers.user import DATestUser
 from tests.integration.common_utils.managers.user import UserManager
 from tests.integration.common_utils.managers.user_group import UserGroupManager
 
 
 def test_connector_permissions(reset: None) -> None:
     # Creating an admin user (first user created is automatically an admin)
-    admin_user: TestUser = UserManager.create(name="admin_user")
+    admin_user: DATestUser = UserManager.create(name="admin_user")
 
     # Creating a curator
-    curator: TestUser = UserManager.create(name="curator")
+    curator: DATestUser = UserManager.create(name="curator")
 
     # Creating a user group
     user_group_1 = UserGroupManager.create(
@@ -57,7 +58,7 @@ def test_connector_permissions(reset: None) -> None:
             name="invalid_connector_1",
             source=DocumentSource.CONFLUENCE,
             groups=[user_group_1.id],
-            is_public=True,
+            access_type=AccessType.PUBLIC,
             user_performing_action=curator,
         )
 
@@ -68,7 +69,7 @@ def test_connector_permissions(reset: None) -> None:
             name="invalid_connector_2",
             source=DocumentSource.CONFLUENCE,
             groups=[user_group_1.id, user_group_2.id],
-            is_public=False,
+            access_type=AccessType.PRIVATE,
             user_performing_action=curator,
         )
 
@@ -80,7 +81,7 @@ def test_connector_permissions(reset: None) -> None:
         name="valid_connector",
         source=DocumentSource.CONFLUENCE,
         groups=[user_group_1.id],
-        is_public=False,
+        access_type=AccessType.PRIVATE,
         user_performing_action=curator,
     )
     assert valid_connector.id is not None
@@ -121,7 +122,7 @@ def test_connector_permissions(reset: None) -> None:
             name="invalid_connector_3",
             source=DocumentSource.CONFLUENCE,
             groups=[user_group_2.id],
-            is_public=False,
+            access_type=AccessType.PRIVATE,
             user_performing_action=curator,
         )
 
@@ -131,6 +132,6 @@ def test_connector_permissions(reset: None) -> None:
             name="invalid_connector_4",
             source=DocumentSource.CONFLUENCE,
             groups=[user_group_1.id],
-            is_public=True,
+            access_type=AccessType.PUBLIC,
             user_performing_action=curator,
         )

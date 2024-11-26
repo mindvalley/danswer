@@ -21,22 +21,24 @@ import {
   LoopioIcon,
   NotionIcon,
   ProductboardIcon,
-  RequestTrackerIcon,
   R2Icon,
   SalesforceIcon,
   SharepointIcon,
   TeamsIcon,
   SlabIcon,
-  SlackIcon,
   ZendeskIcon,
   ZulipIcon,
   MediaWikiIcon,
   WikipediaIcon,
+  AsanaIcon,
   S3Icon,
   OCIStorageIcon,
   GoogleStorageIcon,
   ColorSlackIcon,
   AirtableIcon,
+  XenforoIcon,
+  FreshdeskIcon,
+  FirefliesIcon,
 } from "@/components/icons/icons";
 import { ValidSources } from "./types";
 import {
@@ -231,17 +233,17 @@ const SOURCE_METADATA_MAP: SourceMap = {
     category: SourceCategory.Wiki,
     docs: "https://docs.danswer.dev/connectors/wikipedia",
   },
+  asana: {
+    icon: AsanaIcon,
+    displayName: "Asana",
+    category: SourceCategory.ProjectManagement,
+    docs: "https://docs.danswer.dev/connectors/asana",
+  },
   mediawiki: {
     icon: MediaWikiIcon,
     displayName: "MediaWiki",
     category: SourceCategory.Wiki,
     docs: "https://docs.danswer.dev/connectors/mediawiki",
-  },
-  requesttracker: {
-    icon: RequestTrackerIcon,
-    displayName: "Request Tracker",
-    category: SourceCategory.CustomerSupport,
-    docs: "https://docs.danswer.dev/connectors/requesttracker",
   },
   clickup: {
     icon: ClickupIcon,
@@ -273,6 +275,11 @@ const SOURCE_METADATA_MAP: SourceMap = {
     category: SourceCategory.Storage,
     docs: "https://docs.danswer.dev/connectors/google_storage",
   },
+  xenforo: {
+    icon: XenforoIcon,
+    displayName: "Xenforo",
+    category: SourceCategory.Messaging,
+  },
   ingestion_api: {
     icon: GlobeIcon,
     displayName: "Ingestion",
@@ -283,6 +290,18 @@ const SOURCE_METADATA_MAP: SourceMap = {
     displayName: "Airtable",
     category: SourceCategory.Wiki,
     docs: "https://docs.danswer.dev/connectors/airtable",
+  },
+  freshdesk: {
+    icon: FreshdeskIcon,
+    displayName: "Freshdesk",
+    category: SourceCategory.CustomerSupport,
+    docs: "https://docs.danswer.dev/connectors/freshdesk",
+  },
+  fireflies: {
+    icon: FirefliesIcon,
+    displayName: "Fireflies",
+    category: SourceCategory.Other,
+    docs: "https://docs.danswer.dev/connectors/fireflies",
   },
   // currently used for the Internet Search tool docs, which is why
   // a globe is used
@@ -351,11 +370,4 @@ export function getSourcesForPersona(persona: Persona): ValidSources[] {
     });
   });
   return personaSources;
-}
-
-function stripTrailingSlash(str: string) {
-  if (str.substr(-1) === "/") {
-    return str.substr(0, str.length - 1);
-  }
-  return str;
 }

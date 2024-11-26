@@ -176,12 +176,14 @@ def handle_simplified_chat_message(
         chunks_above=0,
         chunks_below=0,
         full_doc=chat_message_req.full_doc,
+        structured_response_format=chat_message_req.structured_response_format,
     )
 
     packets = stream_chat_message_objects(
         new_msg_req=full_chat_msg_info,
         user=user,
         db_session=db_session,
+        enforce_chat_session_id_for_search_docs=False,
     )
 
     return _convert_packet_stream_to_response(packets)
@@ -201,7 +203,7 @@ def handle_send_message_simple_with_history(
         raise HTTPException(status_code=400, detail="Messages cannot be zero length")
 
     # This is a sanity check to make sure the chat history is valid
-    # It must start with a user message and alternate between user and assistant
+    # It must start with a user message and alternate beteen user and assistant
     expected_role = MessageType.USER
     for msg in req.messages:
         if not msg.message:
@@ -295,12 +297,14 @@ def handle_send_message_simple_with_history(
         chunks_above=0,
         chunks_below=0,
         full_doc=req.full_doc,
+        structured_response_format=req.structured_response_format,
     )
 
     packets = stream_chat_message_objects(
         new_msg_req=full_chat_msg_info,
         user=user,
         db_session=db_session,
+        enforce_chat_session_id_for_search_docs=False,
     )
 
     return _convert_packet_stream_to_response(packets)

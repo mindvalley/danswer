@@ -9,17 +9,18 @@ import {
 import { redirect } from "next/navigation";
 import { SignInButton } from "./SignInButton";
 import { EmailPasswordForm } from "./EmailPasswordForm";
-import { Card, Title, Text } from "@tremor/react";
+import Title from "@/components/ui/title";
+import Text from "@/components/ui/text";
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
 import { LoginText } from "./LoginText";
 import { getSecondsUntilExpiration } from "@/lib/time";
+import AuthFlowContainer from "@/components/auth/AuthFlowContainer";
+import CardSection from "@/components/admin/CardSection";
 
-const Page = async ({
-  searchParams,
-}: {
-  searchParams?: { [key: string]: string | string[] | undefined };
+const Page = async (props: {
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) => {
+  const searchParams = await props.searchParams;
   const autoRedirectDisabled = searchParams?.disableAutoRedirect === "true";
 
   // catch cases where the backend is completely unreachable here
@@ -36,6 +37,10 @@ const Page = async ({
     console.log(`Some fetch failed for the login page - ${e}`);
   }
 
+  const nextUrl = Array.isArray(searchParams?.next)
+    ? searchParams?.next[0]
+    : searchParams?.next || null;
+
   // simply take the user to the home page if Auth is disabled
   if (authTypeMetadata?.authType === "disabled") {
     return redirect("/");
@@ -51,7 +56,6 @@ const Page = async ({
     if (authTypeMetadata?.requiresVerification && !currentUser.is_verified) {
       return redirect("/auth/waiting-on-verification");
     }
-
     return redirect("/");
   }
 
@@ -59,7 +63,7 @@ const Page = async ({
   let authUrl: string | null = null;
   if (authTypeMetadata) {
     try {
-      authUrl = await getAuthUrlSS(authTypeMetadata.authType);
+      authUrl = await getAuthUrlSS(authTypeMetadata.authType, nextUrl!);
     } catch (e) {
       console.log(`Some fetch failed for the login page - ${e}`);
     }
@@ -70,7 +74,7 @@ const Page = async ({
   }
 
   return (
-    <main>
+    <AuthFlowContainer>
       <div className="absolute top-10x w-full">
         <HealthCheckBanner />
       </div>
@@ -90,7 +94,7 @@ const Page = async ({
             </>
           )}
           {authTypeMetadata?.authType === "basic" && (
-            <Card className="mt-4 w-96">
+            <CardSection className="mt-4 w-96">
               <div className="flex">
                 <Title className="mb-2 mx-auto font-bold">
                   Log In to Eve<sup className="ai-superscript">AI</sup>
@@ -105,11 +109,11 @@ const Page = async ({
                   </Link>
                 </Text>
               </div>
-            </Card>
+            </CardSection>
           )}
         </div>
       </div>
-    </main>
+    </AuthFlowContainer>
   );
 };
 

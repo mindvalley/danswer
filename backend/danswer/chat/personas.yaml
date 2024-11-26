@@ -41,6 +41,15 @@ personas:
     icon_color: "#6FB1FF"
     display_priority: 0
     is_visible: true
+    starter_messages:
+      - name: "Give me an overview of what's here"
+        message: "Sample some documents and tell me what you find."
+      - name: "Use AI to solve a work related problem"
+        message: "Ask me what problem I would like to solve, then search the knowledge base to help me find a solution."
+      - name: "Find updates on a topic of interest"
+        message: "Once I provide a topic, retrieve related documents and tell me when there was last activity on the topic if available."
+      - name: "Surface contradictions"
+        message: "Have me choose a subject. Once I have provided it, check against the knowledge base and point out any inconsistencies. For all your following responses, focus on identifying contradictions."
 
   - id: 1
     name: "General GPT"
@@ -57,6 +66,15 @@ personas:
     icon_color: "#FF6F6F"
     display_priority: 1
     is_visible: true
+    starter_messages:
+      - name: "Summarize a document"
+        message: "If I have provided a document please summarize it for me. If not, please ask me to upload a document either by dragging it into the input bar or clicking the +file icon."
+      - name: "Help me with coding"
+        message: 'Write me a "Hello World" script in 5 random languages to show off the functionality.'
+      - name: "Draft a professional email"
+        message: "Help me craft a professional email. Let's establish the context and the anticipated outcomes of the email before proposing a draft."
+      - name: "Learn something new"
+        message: "What is the difference between a Gantt chart, a Burndown chart and a Kanban board?"
 
   - id: 2
     name: "GPT Internet Search"

@@ -1,15 +1,19 @@
 from danswer.chat.models import LlmDoc
-from danswer.configs.chat_configs import LANGUAGE_HINT
-from danswer.configs.chat_configs import QA_PROMPT_OVERRIDE
+from danswer.configs.chat_configs import LANGUAGE_HINT, QA_PROMPT_OVERRIDE
 from danswer.db.search_settings import get_multilingual_expansion
 from danswer.llm.answering.models import PromptConfig
-from danswer.prompts.direct_qa_prompts import CONTEXT_BLOCK
-from danswer.prompts.direct_qa_prompts import HISTORY_BLOCK
-from danswer.prompts.direct_qa_prompts import JSON_PROMPT
-from danswer.prompts.direct_qa_prompts import WEAK_LLM_PROMPT
-from danswer.prompts.prompt_utils import add_date_time_to_prompt
-from danswer.prompts.prompt_utils import add_employee_context_to_prompt
-from danswer.prompts.prompt_utils import build_complete_context_str
+from danswer.llm.utils import message_to_prompt_and_imgs
+from danswer.prompts.direct_qa_prompts import (
+    CONTEXT_BLOCK,
+    HISTORY_BLOCK,
+    JSON_PROMPT,
+    WEAK_LLM_PROMPT,
+)
+from danswer.prompts.prompt_utils import (
+    add_date_time_to_prompt,
+    add_employee_context_to_prompt,
+    build_complete_context_str,
+)
 from danswer.search.models import InferenceChunk
 from danswer.utils.logger import setup_logger
 from langchain.schema.messages import HumanMessage
@@ -102,7 +106,7 @@ def _build_strong_llm_quotes_prompt(
 
 
 def build_quotes_user_message(
-    question: str,
+    message: HumanMessage,
     context_docs: list[LlmDoc] | list[InferenceChunk],
     history_str: str,
     prompt: PromptConfig,
@@ -113,6 +117,8 @@ def build_quotes_user_message(
         if QA_PROMPT_OVERRIDE == "weak"
         else _build_strong_llm_quotes_prompt
     )
+
+    query, _ = message_to_prompt_and_imgs(message)
 
     return prompt_builder(
         question=question,

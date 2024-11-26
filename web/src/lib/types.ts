@@ -3,9 +3,12 @@ import { Credential } from "./connectors/credentials";
 import { Connector } from "./connectors/connectors";
 import { ConnectorCredentialPairStatus } from "@/app/admin/connector/[ccPairId]/types";
 
-export interface UserPreferences {
+interface UserPreferences {
   chosen_assistants: number[] | null;
+  visible_assistants: number[];
+  hidden_assistants: number[];
   default_model: string | null;
+  recent_assistants: number[];
 }
 
 export enum UserStatus {
@@ -15,11 +18,34 @@ export enum UserStatus {
 }
 
 export enum UserRole {
+  LIMITED = "limited",
   BASIC = "basic",
   ADMIN = "admin",
   CURATOR = "curator",
   GLOBAL_CURATOR = "global_curator",
+  EXT_PERM_USER = "ext_perm_user",
+  SLACK_USER = "slack_user",
 }
+
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  [UserRole.BASIC]: "Basic",
+  [UserRole.ADMIN]: "Admin",
+  [UserRole.GLOBAL_CURATOR]: "Global Curator",
+  [UserRole.CURATOR]: "Curator",
+  [UserRole.LIMITED]: "Limited",
+  [UserRole.EXT_PERM_USER]: "External Permissioned User",
+  [UserRole.SLACK_USER]: "Slack User",
+};
+
+export const INVALID_ROLE_HOVER_TEXT: Partial<Record<UserRole, string>> = {
+  [UserRole.BASIC]: "Basic users can't perform any admin actions",
+  [UserRole.ADMIN]: "Admin users can perform all admin actions",
+  [UserRole.GLOBAL_CURATOR]:
+    "Global Curator users can perform admin actions for all groups they are a member of",
+  [UserRole.CURATOR]: "Curator role must be assigned in the Groups tab",
+  [UserRole.SLACK_USER]:
+    "This role is automatically assigned to users who only use Danswer via Slack",
+};
 
 export interface User {
   id: string;
@@ -33,6 +59,8 @@ export interface User {
   current_token_created_at?: Date;
   current_token_expiry_length?: number;
   oidc_expiry?: Date;
+  is_cloud_superuser?: boolean;
+  organization_name: string | null;
 }
 
 export interface MinimalUserSnapshot {
@@ -49,6 +77,7 @@ export type ValidStatuses =
   | "not_started";
 export type TaskStatus = "PENDING" | "STARTED" | "SUCCESS" | "FAILURE";
 export type Feedback = "like" | "dislike";
+export type AccessType = "public" | "private" | "sync";
 export type SessionType = "Chat" | "Search" | "Slack";
 
 export interface DocumentBoostStatus {
@@ -90,7 +119,7 @@ export interface ConnectorIndexingStatus<
   cc_pair_status: ConnectorCredentialPairStatus;
   connector: Connector<ConnectorConfigType>;
   credential: Credential<ConnectorCredentialType>;
-  public_doc: boolean;
+  access_type: AccessType;
   owner: string;
   groups: number[];
   last_finished_status: ValidStatuses | null;
@@ -101,6 +130,7 @@ export interface ConnectorIndexingStatus<
   latest_index_attempt: IndexAttemptSnapshot | null;
   deletion_attempt: DeletionAttemptSnapshot | null;
   is_deletable: boolean;
+  in_progress: boolean;
 }
 
 export interface CCPairBasicInfo {
@@ -231,7 +261,6 @@ const validSources = [
   "linear",
   "hubspot",
   "document360",
-  "requesttracker",
   "file",
   "google_sites",
   "loopio",
@@ -245,12 +274,16 @@ const validSources = [
   "clickup",
   "wikipedia",
   "mediawiki",
+  "asana",
   "s3",
   "r2",
   "google_cloud_storage",
+  "xenforo",
   "oci_storage",
   "not_applicable",
   "ingestion_api",
+  "freshdesk",
+  "fireflies",
 ] as const;
 
 export type ValidSources = (typeof validSources)[number];
@@ -259,3 +292,12 @@ export type ConfigurableSources = Exclude<
   ValidSources,
   "not_applicable" | "ingestion_api"
 >;
+
+// The sources that have auto-sync support on the backend
+export const validAutoSyncSources = [
+  "confluence",
+  "google_drive",
+  "gmail",
+  "slack",
+] as const;
+export type ValidAutoSyncSources = (typeof validAutoSyncSources)[number];

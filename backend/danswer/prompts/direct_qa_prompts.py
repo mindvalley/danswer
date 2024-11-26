@@ -73,7 +73,8 @@ EMPTY_SAMPLE_JSON = {
 JSON_PROMPT = f"""
 {{system_prompt}}
 {REQUIRE_JSON}
-{{context_block}}{{history_block}}{{task_prompt}}
+{{context_block}}{{history_block}}
+{{task_prompt}}
 
 SAMPLE RESPONSE:
 ```
@@ -112,7 +113,7 @@ Refer to the provided context documents when responding to me. \
 Make sure you take into account my employee information in the system message.{DEFAULT_IGNORE_STATEMENT} \
 You should always get right to the point, and never use extraneous language.
 
-{{task_prompt}}
+{{history_block}}{{task_prompt}}
 
 {QUESTION_PAT.upper()}
 {{user_query}}
