@@ -21,6 +21,7 @@ import { getCurrentUserSS } from "@/lib/userSS";
 import CardSection from "@/components/admin/CardSection";
 import { Suspense } from "react";
 import PostHogPageView from "./PostHogPageView";
+import GTMProvider from "@/components/GTMProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -147,8 +148,9 @@ export default async function RootLayout({
     assistantsData;
 
   return getPageContent(
-    <AppProvider
-      user={user}
+    <GTMProvider>
+      <AppProvider
+        user={user}
       settings={combinedSettings}
       assistants={assistants}
       hasAnyConnectors={hasAnyConnectors}
@@ -158,6 +160,7 @@ export default async function RootLayout({
         <PostHogPageView />
       </Suspense>
       {children}
-    </AppProvider>
+      </AppProvider>
+    </GTMProvider>
   );
 }

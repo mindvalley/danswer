@@ -1,36 +1,37 @@
 import functools
 from collections.abc import Callable
-from typing import Any
-from typing import cast
-from typing import Optional
-from typing import TypeVar
+from typing import Any, Optional, TypeVar, cast
 
 from danswer.configs.app_configs import DISABLE_GENERATIVE_AI
-from danswer.configs.danswerbot_configs import DANSWER_BOT_ANSWER_GENERATION_TIMEOUT
-from danswer.configs.danswerbot_configs import DANSWER_BOT_DISABLE_COT
-from danswer.configs.danswerbot_configs import DANSWER_BOT_DISABLE_DOCS_ONLY_ANSWER
-from danswer.configs.danswerbot_configs import DANSWER_BOT_DISPLAY_ERROR_MSGS
-from danswer.configs.danswerbot_configs import DANSWER_BOT_NUM_RETRIES
-from danswer.configs.danswerbot_configs import DANSWER_BOT_TARGET_CHUNK_PERCENTAGE
-from danswer.configs.danswerbot_configs import DANSWER_BOT_USE_QUOTES
-from danswer.configs.danswerbot_configs import DANSWER_FOLLOWUP_EMOJI
-from danswer.configs.danswerbot_configs import DANSWER_REACT_EMOJI
-from danswer.configs.danswerbot_configs import ENABLE_DANSWERBOT_REFLEXION
-from danswer.danswerbot.slack.blocks import build_documents_blocks
-from danswer.danswerbot.slack.blocks import build_follow_up_block
-from danswer.danswerbot.slack.blocks import build_qa_response_blocks
-from danswer.danswerbot.slack.blocks import build_sources_blocks
-from danswer.danswerbot.slack.blocks import get_restate_blocks
+from danswer.configs.danswerbot_configs import (
+    DANSWER_BOT_ANSWER_GENERATION_TIMEOUT,
+    DANSWER_BOT_DISABLE_COT,
+    DANSWER_BOT_DISABLE_DOCS_ONLY_ANSWER,
+    DANSWER_BOT_DISPLAY_ERROR_MSGS,
+    DANSWER_BOT_NUM_RETRIES,
+    DANSWER_BOT_TARGET_CHUNK_PERCENTAGE,
+    DANSWER_BOT_USE_QUOTES,
+    DANSWER_FOLLOWUP_EMOJI,
+    DANSWER_REACT_EMOJI,
+    ENABLE_DANSWERBOT_REFLEXION,
+)
+from danswer.danswerbot.slack.blocks import (
+    build_documents_blocks,
+    build_follow_up_block,
+    build_qa_response_blocks,
+    build_sources_blocks,
+    get_restate_blocks,
+)
 from danswer.danswerbot.slack.formatting import format_slack_message
 from danswer.danswerbot.slack.handlers.utils import send_team_member_message
 from danswer.danswerbot.slack.models import SlackMessageInfo
-from danswer.danswerbot.slack.utils import respond_in_thread
-from danswer.danswerbot.slack.utils import SlackRateLimiter
-from danswer.danswerbot.slack.utils import update_emote_react
-from danswer.db.engine import get_session_with_tenant
-from danswer.db.models import Persona
-from danswer.db.models import SlackBotConfig
-from danswer.db.models import SlackBotResponseType
+from danswer.danswerbot.slack.utils import (
+    SlackRateLimiter,
+    respond_in_thread,
+    update_emote_react,
+)
+from danswer.db.engine import get_session_with_tenant, get_sqlalchemy_engine
+from danswer.db.models import Persona, SlackBotConfig, SlackBotResponseType
 from danswer.db.persona import fetch_persona_by_id
 from danswer.db.search_settings import get_current_search_settings
 from danswer.db.users import get_user_by_email
@@ -38,22 +39,16 @@ from danswer.llm.answering.prompts.citations_prompt import (
     compute_max_document_tokens_for_persona,
 )
 from danswer.llm.factory import get_llms_for_persona
-from danswer.llm.utils import check_number_of_tokens
-from danswer.llm.utils import get_max_input_tokens
+from danswer.llm.utils import check_number_of_tokens, get_max_input_tokens
 from danswer.one_shot_answer.answer_question import get_search_answer
-from danswer.one_shot_answer.models import DirectQARequest
-from danswer.one_shot_answer.models import OneShotQAResponse
+from danswer.one_shot_answer.models import DirectQARequest, OneShotQAResponse
 from danswer.search.enums import OptionalSearchSetting
-from danswer.search.models import BaseFilters
-from danswer.search.models import RerankingDetails
-from danswer.search.models import RetrievalDetails
-from danswer.utils.logger import DanswerLoggingAdapter
-from danswer.utils.logger import setup_logger
+from danswer.search.models import BaseFilters, RerankingDetails, RetrievalDetails
+from danswer.utils.logger import DanswerLoggingAdapter, setup_logger
 from fastapi import HTTPException
 from retry import retry
 from slack_sdk import WebClient
-from slack_sdk.models.blocks import DividerBlock
-from slack_sdk.models.blocks import SectionBlock
+from slack_sdk.models.blocks import DividerBlock, SectionBlock
 from sqlalchemy.orm import Session
 
 logger = setup_logger()
