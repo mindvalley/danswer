@@ -18,7 +18,10 @@ from danswer.prompts.prompt_utils import (
     add_employee_context_to_prompt,
     drop_messages_history_overflow,
 )
+from danswer.utils.logger import setup_logger
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
+
+logger = setup_logger()
 
 
 def default_build_system_message(
@@ -106,7 +109,6 @@ class AnswerPromptBuilder:
         if not system_message:
             self.system_message_and_token_cnt = None
             return
-
         self.system_message_and_token_cnt = (
             system_message,
             check_message_tokens(system_message, self.llm_tokenizer_encode_func),
@@ -128,6 +130,7 @@ class AnswerPromptBuilder:
         return query
 
     def build(self) -> list[BaseMessage]:
+
         if not self.user_message_and_token_cnt:
             raise ValueError("User message must be set before building prompt")
 

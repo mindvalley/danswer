@@ -1,40 +1,40 @@
 import json
 from collections.abc import Generator
-from typing import Any
-from typing import cast
-
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from typing import Any, cast
 
 from danswer.chat.chat_utils import llm_doc_from_inference_section
-from danswer.chat.models import DanswerContext
-from danswer.chat.models import DanswerContexts
-from danswer.chat.models import LlmDoc
-from danswer.chat.models import SectionRelevancePiece
-from danswer.configs.chat_configs import CONTEXT_CHUNKS_ABOVE
-from danswer.configs.chat_configs import CONTEXT_CHUNKS_BELOW
+from danswer.chat.models import (
+    DanswerContext,
+    DanswerContexts,
+    LlmDoc,
+    SectionRelevancePiece,
+)
+from danswer.configs.chat_configs import CONTEXT_CHUNKS_ABOVE, CONTEXT_CHUNKS_BELOW
 from danswer.configs.model_configs import GEN_AI_MODEL_FALLBACK_MAX_TOKENS
-from danswer.db.models import Persona
-from danswer.db.models import User
+from danswer.db.models import Persona, User
 from danswer.key_value_store.interface import JSON_ro
 from danswer.llm.answering.llm_response_handler import LLMCall
-from danswer.llm.answering.models import AnswerStyleConfig
-from danswer.llm.answering.models import ContextualPruningConfig
-from danswer.llm.answering.models import DocumentPruningConfig
-from danswer.llm.answering.models import PreviousMessage
-from danswer.llm.answering.models import PromptConfig
+from danswer.llm.answering.models import (
+    AnswerStyleConfig,
+    ContextualPruningConfig,
+    DocumentPruningConfig,
+    PreviousMessage,
+    PromptConfig,
+)
 from danswer.llm.answering.prompts.build import AnswerPromptBuilder
 from danswer.llm.answering.prompts.citations_prompt import compute_max_llm_input_tokens
-from danswer.llm.answering.prune_and_merge import prune_and_merge_sections
-from danswer.llm.answering.prune_and_merge import prune_sections
+from danswer.llm.answering.prune_and_merge import (
+    prune_and_merge_sections,
+    prune_sections,
+)
 from danswer.llm.interfaces import LLM
-from danswer.search.enums import LLMEvaluationType
-from danswer.search.enums import QueryFlow
-from danswer.search.enums import SearchType
-from danswer.search.models import IndexFilters
-from danswer.search.models import InferenceSection
-from danswer.search.models import RetrievalDetails
-from danswer.search.models import SearchRequest
+from danswer.search.enums import LLMEvaluationType, QueryFlow, SearchType
+from danswer.search.models import (
+    IndexFilters,
+    InferenceSection,
+    RetrievalDetails,
+    SearchRequest,
+)
 from danswer.search.pipeline import SearchPipeline
 from danswer.secondary_llm_flows.choose_search import check_if_need_search
 from danswer.secondary_llm_flows.query_expansion import history_based_query_rephrase
@@ -43,12 +43,12 @@ from danswer.tools.models import ToolResponse
 from danswer.tools.tool import Tool
 from danswer.tools.tool_implementations.search.search_utils import llm_doc_to_dict
 from danswer.tools.tool_implementations.search_like_tool_utils import (
+    FINAL_CONTEXT_DOCUMENTS_ID,
     build_next_prompt_for_search_like_tool,
 )
-from danswer.tools.tool_implementations.search_like_tool_utils import (
-    FINAL_CONTEXT_DOCUMENTS_ID,
-)
 from danswer.utils.logger import setup_logger
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 logger = setup_logger()
 
@@ -380,6 +380,7 @@ class SearchTool(Tool):
             using_tool_calling_llm=using_tool_calling_llm,
             answer_style_config=self.answer_style_config,
             prompt_config=self.prompt_config,
+            user_email=self.user.email if self.user else None,
         )
 
     """Other utility functions"""

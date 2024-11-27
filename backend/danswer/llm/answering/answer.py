@@ -1,32 +1,23 @@
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
+from collections.abc import Iterator
 from uuid import uuid4
 
-from danswer.chat.models import (
-    AnswerQuestionPossibleReturn,
-    CitationInfo,
-    DanswerAnswerPiece,
-)
+from danswer.chat.models import AnswerQuestionPossibleReturn
+from danswer.chat.models import CitationInfo
+from danswer.chat.models import DanswerAnswerPiece
 from danswer.file_store.utils import InMemoryChatFile
-from danswer.llm.answering.llm_response_handler import (
-    LLMCall,
-    LLMResponseHandlerManager,
-)
-from danswer.llm.answering.models import (
-    AnswerStyleConfig,
-    PreviousMessage,
-    PromptConfig,
-)
-from danswer.llm.answering.prompts.build import (
-    AnswerPromptBuilder,
-    default_build_system_message,
-    default_build_user_message,
-)
-from danswer.llm.answering.stream_processing.answer_response_handler import (
-    AnswerResponseHandler,
-    CitationResponseHandler,
-    DummyAnswerResponseHandler,
-    QuotesResponseHandler,
-)
+from danswer.llm.answering.llm_response_handler import LLMCall
+from danswer.llm.answering.llm_response_handler import LLMResponseHandlerManager
+from danswer.llm.answering.models import AnswerStyleConfig
+from danswer.llm.answering.models import PreviousMessage
+from danswer.llm.answering.models import PromptConfig
+from danswer.llm.answering.prompts.build import AnswerPromptBuilder
+from danswer.llm.answering.prompts.build import default_build_system_message
+from danswer.llm.answering.prompts.build import default_build_user_message
+from danswer.llm.answering.stream_processing.answer_response_handler import AnswerResponseHandler
+from danswer.llm.answering.stream_processing.answer_response_handler import CitationResponseHandler
+from danswer.llm.answering.stream_processing.answer_response_handler import DummyAnswerResponseHandler
+from danswer.llm.answering.stream_processing.answer_response_handler import QuotesResponseHandler
 from danswer.llm.answering.stream_processing.utils import map_document_id_order
 from danswer.llm.answering.tool.tool_response_handler import ToolResponseHandler
 from danswer.llm.interfaces import LLM
@@ -39,7 +30,9 @@ from danswer.tools.tool_runner import ToolCallKickoff
 from danswer.tools.utils import explicit_tool_calling_supported
 from danswer.utils.logger import setup_logger
 from langchain.schema.messages import BaseMessage
-from langchain_core.messages import AIMessageChunk, HumanMessage, ToolCall
+from langchain_core.messages import AIMessageChunk
+from langchain_core.messages import HumanMessage
+from langchain_core.messages import ToolCall
 
 logger = setup_logger()
 
@@ -263,7 +256,7 @@ class Answer:
             llm_config=self.llm.config,
             single_message_history=self.single_message_history,
             raw_user_text=self.question,
-        )
+        )        
         prompt_builder.update_system_prompt(
             default_build_system_message(self.prompt_config, self.user_email)
         )
