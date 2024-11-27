@@ -1,7 +1,7 @@
 "use client";
 
-import { useContext, useEffect, useRef, useState } from "react";
-import { FullSearchBar, SearchBar } from "./SearchBar";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { FullSearchBar } from "./SearchBar";
 import { SearchResultsDisplay } from "./SearchResultsDisplay";
 import { SourceSelector } from "./filtering/Filters";
 import {
@@ -14,6 +14,7 @@ import {
   ValidQuestionResponse,
   Relevance,
   SearchDanswerDocument,
+  SourceMetadata,
 } from "@/lib/search/interfaces";
 import { searchRequestStreamed } from "@/lib/search/streamingQa";
 import { CancellationToken, cancellable } from "@/lib/search/cancellable";
@@ -40,6 +41,9 @@ import { ApiKeyModal } from "../llm/ApiKeyModal";
 import { useSearchContext } from "../context/SearchContext";
 import { useUser } from "../user/UserProvider";
 import UnconfiguredProviderText from "../chat_search/UnconfiguredProviderText";
+import { DateRangePickerValue } from "@/app/ee/admin/performance/DateRangeSelector";
+import { Tag } from "@/lib/types";
+import { isEqual } from "lodash";
 
 export type searchState =
   | "input"
@@ -53,11 +57,6 @@ export type searchState =
 const SEARCH_DEFAULT_OVERRIDES_START: SearchDefaultOverrides = {
   forceDisplayQA: false,
   offset: 0,
-};
-
-const VALID_QUESTION_RESPONSE_DEFAULT: ValidQuestionResponse = {
-  reasoning: null,
-  error: null,
 };
 
 interface SearchSectionProps {
@@ -102,15 +101,15 @@ export const SearchSection = ({
 
   const [agentic, setAgentic] = useState(agenticSearchEnabled);
 
-  const toggleAgentic = () => {
+  const toggleAgentic = useCallback(() => {
     Cookies.set(
       AGENTIC_SEARCH_TYPE_COOKIE_NAME,
       String(!agentic).toLocaleLowerCase()
     );
     setAgentic((agentic) => !agentic);
-  };
+  }, [agentic]);
 
-  const toggleSidebar = () => {
+  const toggleSidebar = useCallback(() => {
     Cookies.set(
       SIDEBAR_TOGGLED_COOKIE_NAME,
       String(!toggledSidebar).toLocaleLowerCase()
@@ -119,7 +118,7 @@ export const SearchSection = ({
         path: "/",
       };
     toggle();
-  };
+  }, [toggledSidebar, toggle]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -136,19 +135,17 @@ export const SearchSection = ({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [toggleAgentic]);
+
   const [isFetching, setIsFetching] = useState(false);
 
-  const [validQuestionResponse, setValidQuestionResponse] =
-    useObjectState<ValidQuestionResponse>(VALID_QUESTION_RESPONSE_DEFAULT);
-
   // Search Type
-  const [selectedSearchType, setSelectedSearchType] =
-    useState<SearchType>(defaultSearchType);
+  const selectedSearchType = defaultSearchType;
 
-  const [selectedPersona, setSelectedPersona] = useState<number>(
-    assistants[0]?.id || 0
-  );
+  // If knowledge assistant exists, use it. Otherwise, use first available assistant for search.
+  const selectedPersona = assistants.find((assistant) => assistant.id === 0)
+    ? 0
+    : assistants[0]?.id;
 
   // Used for search state display
   const [analyzeStartTime, setAnalyzeStartTime] = useState<number>(0);
@@ -166,13 +163,10 @@ export const SearchSection = ({
     });
 
   const searchParams = useSearchParams();
-  const existingSearchIdRaw = searchParams.get("searchId");
-  const existingSearchessionId = existingSearchIdRaw
-    ? parseInt(existingSearchIdRaw)
-    : null;
+  const existingSearchessionId = searchParams.get("searchId");
 
   useEffect(() => {
-    if (existingSearchIdRaw == null) {
+    if (existingSearchessionId == null) {
       return;
     }
     function extractFirstMessageByType(
@@ -205,7 +199,7 @@ export const SearchSection = ({
           quotes: null,
           selectedDocIndices: null,
           error: null,
-          messageId: existingSearchIdRaw ? parseInt(existingSearchIdRaw) : null,
+          messageId: searchSession.messages[0].message_id,
           suggestedFlowType: null,
           additional_relevance: undefined,
         };
@@ -217,7 +211,7 @@ export const SearchSection = ({
       }
     }
     initialSessionFetch();
-  }, [existingSearchessionId, existingSearchIdRaw]);
+  }, [existingSearchessionId]);
 
   // Overrides for default behavior that only last a single query
   const [defaultOverrides, setDefaultOverrides] =
@@ -326,7 +320,7 @@ export const SearchSection = ({
   };
   const updateMessageAndThreadId = (
     messageId: number,
-    chat_session_id: number
+    chat_session_id: string
   ) => {
     setSearchResponse((prevState) => ({
       ...(prevState || initialSearchResponse),
@@ -373,8 +367,36 @@ export const SearchSection = ({
     setSearchAnswerExpanded(false);
   };
 
-  const [previousSearch, setPreviousSearch] = useState<string>("");
+  interface SearchDetails {
+    query: string;
+    sources: SourceMetadata[];
+    agentic: boolean;
+    documentSets: string[];
+    timeRange: DateRangePickerValue | null;
+    tags: Tag[];
+    persona: Persona;
+  }
+
+  const [previousSearch, setPreviousSearch] = useState<null | SearchDetails>(
+    null
+  );
   const [agenticResults, setAgenticResults] = useState<boolean | null>(null);
+  const currentSearch = (overrideMessage?: string): SearchDetails => {
+    return {
+      query: overrideMessage || query,
+      sources: filterManager.selectedSources,
+      agentic: agentic!,
+      documentSets: filterManager.selectedDocumentSets,
+      timeRange: filterManager.timeRange,
+      tags: filterManager.selectedTags,
+      persona: assistants.find(
+        (assistant) => assistant.id === selectedPersona
+      ) as Persona,
+    };
+  };
+  const isSearchChanged = () => {
+    return !isEqual(currentSearch(), previousSearch);
+  };
 
   let lastSearchCancellationToken = useRef<CancellationToken | null>(null);
   const onSearch = async ({
@@ -397,8 +419,9 @@ export const SearchSection = ({
 
     setIsFetching(true);
     setSearchResponse(initialSearchResponse);
-    setValidQuestionResponse(VALID_QUESTION_RESPONSE_DEFAULT);
-    setPreviousSearch(overrideMessage || query);
+
+    setPreviousSearch(currentSearch(overrideMessage));
+
     const searchFnArgs = {
       query: overrideMessage || query,
       sources: filterManager.selectedSources,
@@ -492,7 +515,7 @@ export const SearchSection = ({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [router]);
+  }, [router, toggleSidebar]);
 
   useEffect(() => {
     if (settings?.isMobile) {
@@ -601,7 +624,10 @@ export const SearchSection = ({
         {!shouldDisplayNoSources &&
           showApiKeyModal &&
           !shouldShowWelcomeModal && (
-            <ApiKeyModal hide={() => setShowApiKeyModal(false)} />
+            <ApiKeyModal
+              setPopup={setPopup}
+              hide={() => setShowApiKeyModal(false)}
+            />
           )}
 
         {deletingChatSession && (
@@ -678,7 +704,6 @@ export const SearchSection = ({
             reset={() => setQuery("")}
             toggleSidebar={toggleSidebar}
             page="search"
-            user={user}
           />
           <div className="w-full flex">
             <div
@@ -698,7 +723,9 @@ export const SearchSection = ({
 
             {
               <div
-                className={`desktop:px-24 w-full ${chatBannerPresent && "mt-10"} pt-10 relative max-w-[2000px] xl:max-w-[1430px] mx-auto`}
+                className={`desktop:px-24 w-full ${
+                  chatBannerPresent && "mt-10"
+                } pt-10 relative max-w-[2000px] xl:max-w-[1430px] mx-auto`}
               >
                 <div className="absolute z-10 mobile:px-4 mobile:max-w-searchbar-max mobile:w-[90%] top-12 desktop:left-4 hidden 2xl:block mobile:left-1/2 mobile:transform mobile:-translate-x-1/2 desktop:w-52 3xl:w-64">
                   {!settings?.isMobile &&
@@ -758,16 +785,15 @@ export const SearchSection = ({
                     </div>
 
                     <UnconfiguredProviderText
+                      noSources={shouldDisplayNoSources}
                       showConfigureAPIKey={() => setShowApiKeyModal(true)}
                     />
 
                     <FullSearchBar
-                      setPopup={setPopup}
-                      disabled={previousSearch === query}
+                      disabled={!isSearchChanged()}
                       toggleAgentic={
                         disabledAgentic ? undefined : toggleAgentic
                       }
-                      previousSearch={previousSearch}
                       showingSidebar={toggledSidebar}
                       agentic={agentic}
                       query={query}
@@ -824,7 +850,7 @@ export const SearchSection = ({
           </div>
         </div>
       </div>
-      <FixedLogo />
+      <FixedLogo backgroundToggled={toggledSidebar || showDocSidebar} />
     </>
   );
 };

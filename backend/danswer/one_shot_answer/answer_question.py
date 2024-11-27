@@ -1,65 +1,72 @@
-from collections.abc import Callable
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import cast
 
 from danswer.chat.chat_utils import reorganize_citations
-from danswer.chat.models import CitationInfo
-from danswer.chat.models import DanswerAnswerPiece
-from danswer.chat.models import DanswerContexts
-from danswer.chat.models import DanswerQuotes
-from danswer.chat.models import DocumentRelevance
-from danswer.chat.models import LLMRelevanceFilterResponse
-from danswer.chat.models import QADocsResponse
-from danswer.chat.models import RelevanceAnalysis
-from danswer.chat.models import StreamingError
-from danswer.configs.chat_configs import DISABLE_LLM_DOC_RELEVANCE
-from danswer.configs.chat_configs import MAX_CHUNKS_FED_TO_CHAT
-from danswer.configs.chat_configs import QA_TIMEOUT
+from danswer.chat.models import (
+    CitationInfo,
+    DanswerAnswerPiece,
+    DanswerContexts,
+    DanswerQuotes,
+    DocumentRelevance,
+    LLMRelevanceFilterResponse,
+    QADocsResponse,
+    RelevanceAnalysis,
+    StreamingError,
+)
+from danswer.configs.chat_configs import (
+    DISABLE_LLM_DOC_RELEVANCE,
+    MAX_CHUNKS_FED_TO_CHAT,
+    QA_TIMEOUT,
+)
 from danswer.configs.constants import MessageType
-from danswer.db.chat import create_chat_session
-from danswer.db.chat import create_db_search_doc
-from danswer.db.chat import create_new_chat_message
-from danswer.db.chat import get_or_create_root_message
-from danswer.db.chat import translate_db_message_to_chat_message_detail
-from danswer.db.chat import translate_db_search_doc_to_server_search_doc
-from danswer.db.chat import update_search_docs_table_with_relevance
+from danswer.db.chat import (
+    create_chat_session,
+    create_db_search_doc,
+    create_new_chat_message,
+    get_or_create_root_message,
+    translate_db_message_to_chat_message_detail,
+    translate_db_search_doc_to_server_search_doc,
+    update_search_docs_table_with_relevance,
+)
 from danswer.db.engine import get_session_context_manager
-from danswer.db.models import Persona
-from danswer.db.models import User
+from danswer.db.models import Persona, User
 from danswer.db.persona import get_prompt_by_id
 from danswer.llm.answering.answer import Answer
-from danswer.llm.answering.models import AnswerStyleConfig
-from danswer.llm.answering.models import CitationConfig
-from danswer.llm.answering.models import DocumentPruningConfig
-from danswer.llm.answering.models import PromptConfig
-from danswer.llm.answering.models import QuotesConfig
-from danswer.llm.factory import get_llms_for_persona
-from danswer.llm.factory import get_main_llm_from_tuple
+from danswer.llm.answering.models import (
+    AnswerStyleConfig,
+    CitationConfig,
+    DocumentPruningConfig,
+    PromptConfig,
+    QuotesConfig,
+)
+from danswer.llm.factory import get_llms_for_persona, get_main_llm_from_tuple
 from danswer.natural_language_processing.utils import get_tokenizer
-from danswer.one_shot_answer.models import DirectQARequest
-from danswer.one_shot_answer.models import OneShotQAResponse
-from danswer.one_shot_answer.models import QueryRephrase
+from danswer.one_shot_answer.models import (
+    DirectQARequest,
+    OneShotQAResponse,
+    QueryRephrase,
+)
 from danswer.one_shot_answer.qa_utils import combine_message_thread
 from danswer.search.enums import LLMEvaluationType
-from danswer.search.models import RerankMetricsContainer
-from danswer.search.models import RetrievalMetricsContainer
-from danswer.search.utils import chunks_or_sections_to_search_docs
-from danswer.search.utils import dedupe_documents
+from danswer.search.models import RerankMetricsContainer, RetrievalMetricsContainer
+from danswer.search.utils import chunks_or_sections_to_search_docs, dedupe_documents
 from danswer.secondary_llm_flows.answer_validation import get_answer_validity
 from danswer.secondary_llm_flows.query_expansion import thread_based_query_rephrase
 from danswer.server.query_and_chat.models import ChatMessageDetail
 from danswer.server.utils import get_json_line
 from danswer.tools.force import ForceUseTool
-from danswer.tools.search.search_tool import SEARCH_DOC_CONTENT_ID
-from danswer.tools.search.search_tool import SEARCH_RESPONSE_SUMMARY_ID
-from danswer.tools.search.search_tool import SearchResponseSummary
-from danswer.tools.search.search_tool import SearchTool
-from danswer.tools.search.search_tool import SECTION_RELEVANCE_LIST_ID
-from danswer.tools.tool import ToolResponse
+from danswer.tools.models import ToolResponse
+from danswer.tools.tool_implementations.search.search_tool import (
+    SEARCH_DOC_CONTENT_ID,
+    SEARCH_RESPONSE_SUMMARY_ID,
+    SECTION_RELEVANCE_LIST_ID,
+    SearchResponseSummary,
+    SearchTool,
+)
 from danswer.tools.tool_runner import ToolCallKickoff
 from danswer.utils.logger import setup_logger
 from danswer.utils.timing import log_generator_function_time
-from ee.danswer.server.query_and_chat.utils import create_temporary_persona
+from danswer.utils.variable_functionality import fetch_ee_implementation_or_noop
 from sqlalchemy.orm import Session
 
 logger = setup_logger()
@@ -122,15 +129,27 @@ def stream_answer_objects(
     )
 
     temporary_persona: Persona | None = None
+
     if query_req.persona_config is not None:
-        new_persona = create_temporary_persona(
-            db_session=db_session, persona_config=query_req.persona_config, user=user
-        )
-        temporary_persona = new_persona
+        temporary_persona = fetch_ee_implementation_or_noop(
+            "danswer.server.query_and_chat.utils", "create_temporary_persona", None
+        )(db_session=db_session, persona_config=query_req.persona_config, user=user)
 
     persona = temporary_persona if temporary_persona else chat_session.persona
 
-    llm, fast_llm = get_llms_for_persona(persona=persona)
+    try:
+        llm, fast_llm = get_llms_for_persona(persona=persona)
+    except ValueError as e:
+        logger.error(
+            f"Failed to initialize LLMs for persona '{persona.name}': {str(e)}"
+        )
+        if "No LLM provider" in str(e):
+            raise ValueError(
+                "Please configure a Generative AI model to use this feature."
+            ) from e
+        raise ValueError(
+            "Failed to initialize the AI model. Please check your configuration and try again."
+        ) from e
 
     llm_tokenizer = get_tokenizer(
         model_name=llm.config.model_name,
@@ -191,6 +210,12 @@ def stream_answer_objects(
         max_tokens=max_document_tokens,
     )
 
+    answer_config = AnswerStyleConfig(
+        citation_config=CitationConfig() if use_citations else None,
+        quotes_config=QuotesConfig() if not use_citations else None,
+        document_pruning_config=document_pruning_config,
+    )
+
     search_tool = SearchTool(
         db_session=db_session,
         user=user,
@@ -205,16 +230,11 @@ def stream_answer_objects(
         llm=llm,
         fast_llm=fast_llm,
         pruning_config=document_pruning_config,
+        answer_style_config=answer_config,
         bypass_acl=bypass_acl,
         chunks_above=query_req.chunks_above,
         chunks_below=query_req.chunks_below,
         full_doc=query_req.full_doc,
-    )
-
-    answer_config = AnswerStyleConfig(
-        citation_config=CitationConfig() if use_citations else None,
-        quotes_config=QuotesConfig() if not use_citations else None,
-        document_pruning_config=document_pruning_config,
     )
 
     answer = Answer(
@@ -238,7 +258,7 @@ def stream_answer_objects(
         return_contexts=query_req.return_contexts,
         skip_gen_ai_answer_generation=query_req.skip_gen_ai_answer_generation,
     )
-    # won't be any ImageGenerationDisplay responses since that tool is never passed in
+    # won't be any FileChatDisplay responses since that tool is never passed in
     for packet in cast(AnswerObjectIterator, answer.processed_streamed_output):
         # for one-shot flow, don't currently do anything with these
         if isinstance(packet, ToolResponse):

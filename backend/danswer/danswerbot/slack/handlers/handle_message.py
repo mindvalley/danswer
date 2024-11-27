@@ -1,7 +1,9 @@
 import datetime
 
-from danswer.configs.danswerbot_configs import DANSWER_BOT_FEEDBACK_REMINDER
-from danswer.configs.danswerbot_configs import DANSWER_REACT_EMOJI
+from danswer.configs.danswerbot_configs import (
+    DANSWER_BOT_FEEDBACK_REMINDER,
+    DANSWER_REACT_EMOJI,
+)
 from danswer.danswerbot.slack.blocks import get_feedback_reminder_blocks
 from danswer.danswerbot.slack.handlers.handle_regular_answer import (
     handle_regular_answer,
@@ -10,14 +12,16 @@ from danswer.danswerbot.slack.handlers.handle_standard_answers import (
     handle_standard_answers,
 )
 from danswer.danswerbot.slack.models import SlackMessageInfo
-from danswer.danswerbot.slack.utils import fetch_user_ids_from_emails
-from danswer.danswerbot.slack.utils import fetch_user_ids_from_groups
-from danswer.danswerbot.slack.utils import respond_in_thread
-from danswer.danswerbot.slack.utils import slack_usage_report
-from danswer.danswerbot.slack.utils import update_emote_react
-from danswer.db.engine import get_sqlalchemy_engine
+from danswer.danswerbot.slack.utils import (
+    fetch_user_ids_from_emails,
+    fetch_user_ids_from_groups,
+    respond_in_thread,
+    slack_usage_report,
+    update_emote_react,
+)
+from danswer.db.engine import get_session_with_tenant
 from danswer.db.models import SlackBotConfig
-from danswer.db.users import add_non_web_user_if_not_exists
+from danswer.db.users import add_slack_user_if_not_exists
 from danswer.utils.logger import setup_logger
 from shared_configs.configs import SLACK_CHANNEL_ID
 from slack_sdk import WebClient
@@ -109,6 +113,7 @@ def handle_message(
     slack_bot_config: SlackBotConfig | None,
     client: WebClient,
     feedback_reminder_id: str | None,
+    tenant_id: str | None,
 ) -> bool:
     """Potentially respond to the user message depending on filters and if an answer was generated
 
@@ -134,7 +139,9 @@ def handle_message(
         action = "slack_tag_message"
     elif is_bot_dm:
         action = "slack_dm_message"
-    slack_usage_report(action=action, sender_id=sender_id, client=client)
+    slack_usage_report(
+        action=action, sender_id=sender_id, client=client, tenant_id=tenant_id
+    )
 
     document_set_names: list[str] | None = None
     persona = slack_bot_config.persona if slack_bot_config else None
@@ -208,9 +215,9 @@ def handle_message(
     except SlackApiError as e:
         logger.error(f"Was not able to react to user message due to: {e}")
 
-    with Session(get_sqlalchemy_engine()) as db_session:
+    with get_session_with_tenant(tenant_id) as db_session:
         if message_info.email:
-            add_non_web_user_if_not_exists(message_info.email, db_session)
+            add_slack_user_if_not_exists(db_session, message_info.email)
 
         # first check if we need to respond with a standard answer
         used_standard_answer = handle_standard_answers(
@@ -234,5 +241,6 @@ def handle_message(
             channel=channel,
             logger=logger,
             feedback_reminder_id=feedback_reminder_id,
+            tenant_id=tenant_id,
         )
         return issue_with_regular_answer
