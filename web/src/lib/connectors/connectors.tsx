@@ -1071,6 +1071,7 @@ For example, specifying .*-support.* as a "channel" will cause the connector to 
           "The name or ID of the specific table within the Airtable base.",
       },
     ],
+    advanced_values: [],
   },
 };
 export function createConnectorInitialValues(
@@ -1082,21 +1083,18 @@ export function createConnectorInitialValues(
     name: "",
     groups: [],
     access_type: "public",
-    ...configuration.values.reduce(
-      (acc, field) => {
-        if (field.type === "select") {
-          acc[field.name] = null;
-        } else if (field.type === "list") {
-          acc[field.name] = field.default || [];
-        } else if (field.type === "checkbox") {
-          acc[field.name] = field.default || false;
-        } else if (field.default !== undefined) {
-          acc[field.name] = field.default;
-        }
-        return acc;
-      },
-      {} as { [record: string]: any }
-    ),
+    ...configuration.values.reduce((acc, field) => {
+      if (field.type === "select") {
+        acc[field.name] = null;
+      } else if (field.type === "list") {
+        acc[field.name] = field.default || [];
+      } else if (field.type === "checkbox") {
+        acc[field.name] = field.default || false;
+      } else if (field.default !== undefined) {
+        acc[field.name] = field.default;
+      }
+      return acc;
+    }, {} as { [record: string]: any }),
   };
 }
 

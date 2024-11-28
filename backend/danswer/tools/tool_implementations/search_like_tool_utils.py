@@ -1,19 +1,16 @@
 from typing import cast
 
-from langchain_core.messages import HumanMessage
-
 from danswer.chat.models import LlmDoc
-from danswer.llm.answering.models import AnswerStyleConfig
-from danswer.llm.answering.models import PromptConfig
+from danswer.llm.answering.models import AnswerStyleConfig, PromptConfig
 from danswer.llm.answering.prompts.build import AnswerPromptBuilder
 from danswer.llm.answering.prompts.citations_prompt import (
     build_citations_system_message,
+    build_citations_user_message,
 )
-from danswer.llm.answering.prompts.citations_prompt import build_citations_user_message
 from danswer.llm.answering.prompts.quotes_prompt import build_quotes_user_message
 from danswer.tools.message import ToolCallSummary
 from danswer.tools.models import ToolResponse
-
+from langchain_core.messages import HumanMessage
 
 FINAL_CONTEXT_DOCUMENTS_ID = "final_context_documents"
 
@@ -25,6 +22,7 @@ def build_next_prompt_for_search_like_tool(
     using_tool_calling_llm: bool,
     answer_style_config: AnswerStyleConfig,
     prompt_config: PromptConfig,
+    user_email: str | None = None,
 ) -> AnswerPromptBuilder:
     if not using_tool_calling_llm:
         final_context_docs_response = next(
@@ -41,7 +39,7 @@ def build_next_prompt_for_search_like_tool(
 
     if answer_style_config.citation_config:
         prompt_builder.update_system_prompt(
-            build_citations_system_message(prompt_config)
+            build_citations_system_message(prompt_config, user_email)
         )
         prompt_builder.update_user_prompt(
             build_citations_user_message(
@@ -68,6 +66,7 @@ def build_next_prompt_for_search_like_tool(
                 context_docs=final_context_documents,
                 history_str=prompt_builder.single_message_history or "",
                 prompt=prompt_config,
+                user_email=user_email,
             )
         )
 

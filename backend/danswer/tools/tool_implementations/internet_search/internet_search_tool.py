@@ -5,7 +5,6 @@ from typing import Any
 from typing import cast
 
 import httpx
-
 from danswer.chat.chat_utils import combine_message_chain
 from danswer.chat.models import LlmDoc
 from danswer.configs.constants import DocumentSource
@@ -23,18 +22,10 @@ from danswer.secondary_llm_flows.query_expansion import history_based_query_reph
 from danswer.tools.message import ToolCallSummary
 from danswer.tools.models import ToolResponse
 from danswer.tools.tool import Tool
-from danswer.tools.tool_implementations.internet_search.models import (
-    InternetSearchResponse,
-)
-from danswer.tools.tool_implementations.internet_search.models import (
-    InternetSearchResult,
-)
-from danswer.tools.tool_implementations.search_like_tool_utils import (
-    build_next_prompt_for_search_like_tool,
-)
-from danswer.tools.tool_implementations.search_like_tool_utils import (
-    FINAL_CONTEXT_DOCUMENTS_ID,
-)
+from danswer.tools.tool_implementations.internet_search.models import InternetSearchResponse
+from danswer.tools.tool_implementations.internet_search.models import InternetSearchResult
+from danswer.tools.tool_implementations.search_like_tool_utils import build_next_prompt_for_search_like_tool
+from danswer.tools.tool_implementations.search_like_tool_utils import FINAL_CONTEXT_DOCUMENTS_ID
 from danswer.utils.logger import setup_logger
 from danswer.utils.special_types import JSON_ro
 
@@ -267,5 +258,5 @@ class InternetSearchTool(Tool):
             tool_responses=tool_responses,
             using_tool_calling_llm=using_tool_calling_llm,
             answer_style_config=self.answer_style_config,
-            prompt_config=self.prompt_config,
+            prompt_config=self.prompt_config
         )
