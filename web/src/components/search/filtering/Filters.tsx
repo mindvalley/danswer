@@ -19,11 +19,20 @@ import {
   FiX,
 } from "react-icons/fi";
 import { DateRangeSelector } from "../DateRangeSelector";
-import { DateRangePickerValue } from "@tremor/react";
+import { DateRangePickerValue } from "@/app/ee/admin/performance/DateRangeSelector";
 import { FilterDropdown } from "./FilterDropdown";
 import { listSourceMetadata } from "@/lib/sources";
 import { SourceIcon } from "@/components/SourceIcon";
 import { TagFilter } from "./TagFilter";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverTrigger } from "@/components/ui/popover";
+import { PopoverContent } from "@radix-ui/react-popover";
+import { CalendarIcon } from "lucide-react";
+import {
+  buildDateString,
+  getDateRangeString,
+  getTimeAgoString,
+} from "@/lib/dateUtils";
 
 const SectionTitle = ({ children }: { children: string }) => (
   <div className="font-bold text-xs mt-2 flex">{children}</div>
@@ -99,17 +108,48 @@ export function SourceSelector({
     <div
       className={`hidden ${
         showDocSidebar ? "4xl:block" : "!block"
-      } duration-1000 flex  ease-out transition-all transform origin-top-right`}
+      } duration-1000 flex ease-out transition-all transform origin-top-right`}
     >
       <div className="mb-4 pb-2 flex border-b border-border text-emphasis">
         <h2 className="font-bold my-auto">Filters</h2>
         <FiFilter className="my-auto ml-2" size="16" />
       </div>
 
-      <SectionTitle>Time Range</SectionTitle>
-      <div className="mt-2">
-        <DateRangeSelector value={timeRange} onValueChange={setTimeRange} />
-      </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <div className="cursor-pointer">
+            <SectionTitle>Time Range</SectionTitle>
+            <p className="text-sm text-default mt-2">
+              {timeRange?.from
+                ? getDateRangeString(timeRange.from, timeRange.to)
+                : "Since"}
+            </p>
+          </div>
+        </PopoverTrigger>
+        <PopoverContent
+          className="bg-background border-border border rounded-md z-[200] p-0"
+          align="start"
+        >
+          <Calendar
+            mode="range"
+            selected={
+              timeRange
+                ? { from: new Date(timeRange.from), to: new Date(timeRange.to) }
+                : undefined
+            }
+            onSelect={(daterange) => {
+              const initialDate = daterange?.from || new Date();
+              const endDate = daterange?.to || new Date();
+              setTimeRange({
+                from: initialDate,
+                to: endDate,
+                selectValue: timeRange?.selectValue || "",
+              });
+            }}
+            className="rounded-md "
+          />
+        </PopoverContent>
+      </Popover>
 
       {availableTags.length > 0 && (
         <>
@@ -423,97 +463,148 @@ export function HorizontalSourceSelector({
   };
 
   return (
-    <div className="flex flex-col space-y-4">
-      <div className="flex space-x-2">
-        <div className="w-24">
-          <DateRangeSelector
-            isHorizontal
-            value={timeRange}
-            onValueChange={setTimeRange}
-          />
-        </div>
+    <div className="flex flex-nowrap  space-x-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <div
+            className={`
+              border 
+              max-w-64
+              border-border 
+              rounded-lg 
+              bg-background
+              max-h-96 
+              overflow-y-scroll
+              overscroll-contain
+              px-3
+              text-sm
+              py-1.5
+              select-none
+              cursor-pointer
+              w-fit
+              gap-x-1
+              hover:bg-hover
+              bg-hover-light
+              flex
+              items-center
+              bg-background-search-filter
+              `}
+          >
+            <CalendarIcon className="h-4 w-4" />
 
-        {existingSources.length > 0 && (
-          <FilterDropdown
-            options={listSourceMetadata()
-              .filter((source) => existingSources.includes(source.internalName))
-              .map((source) => ({
-                key: source.internalName,
-                display: (
-                  <>
-                    <SourceIcon
-                      sourceType={source.internalName}
-                      iconSize={16}
-                    />
-                    <span className="ml-2 text-sm">{source.displayName}</span>
-                  </>
-                ),
-              }))}
-            selected={selectedSources.map((source) => source.internalName)}
-            handleSelect={(option) =>
-              handleSourceSelect(
-                listSourceMetadata().find((s) => s.internalName === option.key)!
-              )
+            {timeRange?.from
+              ? getDateRangeString(timeRange.from, timeRange.to)
+              : "Since"}
+          </div>
+        </PopoverTrigger>
+        <PopoverContent
+          className="bg-background border-border border rounded-md z-[200] p-0"
+          align="start"
+        >
+          <Calendar
+            mode="range"
+            selected={
+              timeRange
+                ? { from: new Date(timeRange.from), to: new Date(timeRange.to) }
+                : undefined
             }
-            icon={<FiMap size={16} />}
-            defaultDisplay="Sources"
-            width="w-fit ellipsis truncate"
-            resetValues={resetSources}
-            dropdownWidth="w-40"
-            optionClassName="truncate w-full break-all ellipsis"
+            onSelect={(daterange) => {
+              const initialDate = daterange?.from || new Date();
+              const endDate = daterange?.to || new Date();
+              setTimeRange({
+                from: initialDate,
+                to: endDate,
+                selectValue: timeRange?.selectValue || "",
+              });
+            }}
+            className="rounded-md "
           />
-        )}
+        </PopoverContent>
+      </Popover>
 
-        {availableDocumentSets.length > 0 && (
-          <FilterDropdown
-            options={availableDocumentSets.map((documentSet) => ({
-              key: documentSet.name,
-              display: <>{documentSet.name}</>,
-            }))}
-            selected={selectedDocumentSets}
-            handleSelect={(option) => handleDocumentSetSelect(option.key)}
-            icon={<FiBook size={16} />}
-            defaultDisplay="Sets"
-            resetValues={resetDocuments}
-            width="w-fit max-w-24 ellipsis truncate"
-            dropdownWidth="max-w-36 w-fit"
-            optionClassName="truncate break-all ellipsis"
-          />
-        )}
-
-        {availableTags.length > 0 && (
-          <FilterDropdown
-            options={availableTags.map((tag) => ({
-              key: `${tag.tag_key}=${tag.tag_value}`,
+      {existingSources.length > 0 && (
+        <FilterDropdown
+          backgroundColor="bg-background-search-filter"
+          options={listSourceMetadata()
+            .filter((source) => existingSources.includes(source.internalName))
+            .map((source) => ({
+              key: source.internalName,
               display: (
-                <span className="text-sm">
-                  {tag.tag_key}
-                  <b>=</b>
-                  {tag.tag_value}
-                </span>
+                <>
+                  <SourceIcon sourceType={source.internalName} iconSize={16} />
+                  <span className="ml-2 text-sm">{source.displayName}</span>
+                </>
               ),
             }))}
-            selected={selectedTags.map(
-              (tag) => `${tag.tag_key}=${tag.tag_value}`
-            )}
-            handleSelect={(option) => {
-              const [tag_key, tag_value] = option.key.split("=");
-              const selectedTag = availableTags.find(
-                (tag) => tag.tag_key === tag_key && tag.tag_value === tag_value
-              );
-              if (selectedTag) {
-                handleTagSelect(selectedTag);
-              }
-            }}
-            icon={<FiTag size={16} />}
-            defaultDisplay="Tags"
-            resetValues={resetTags}
-            width="w-fit max-w-24 ellipsis truncate"
-            dropdownWidth="max-w-80 w-fit"
-            optionClassName="truncate break-all ellipsis"
-          />
-        )}
-      </div>
+          selected={selectedSources.map((source) => source.internalName)}
+          handleSelect={(option) =>
+            handleSourceSelect(
+              listSourceMetadata().find((s) => s.internalName === option.key)!
+            )
+          }
+          icon={<FiMap size={16} />}
+          defaultDisplay="Sources"
+          dropdownColor="bg-background-search-filter-dropdown"
+          width="w-fit ellipsis truncate"
+          resetValues={resetSources}
+          dropdownWidth="w-40"
+          optionClassName="truncate w-full break-all ellipsis"
+        />
+      )}
+
+      {availableDocumentSets.length > 0 && (
+        <FilterDropdown
+          backgroundColor="bg-background-search-filter"
+          options={availableDocumentSets.map((documentSet) => ({
+            key: documentSet.name,
+            display: <>{documentSet.name}</>,
+          }))}
+          selected={selectedDocumentSets}
+          handleSelect={(option) => handleDocumentSetSelect(option.key)}
+          icon={<FiBook size={16} />}
+          defaultDisplay="Sets"
+          resetValues={resetDocuments}
+          width="w-fit max-w-24 text-ellipsis truncate"
+          dropdownColor="bg-background-search-filter-dropdown"
+          dropdownWidth="max-w-36 w-fit"
+          optionClassName="truncate w-full break-all"
+        />
+      )}
+
+      {availableTags.length > 0 && (
+        <FilterDropdown
+          backgroundColor="bg-background-search-filter"
+          options={availableTags.map((tag) => ({
+            key: `${tag.tag_key}=${tag.tag_value}`,
+            display: (
+              <span className="text-sm">
+                {tag.tag_key}
+                <b>=</b>
+                {tag.tag_value}
+              </span>
+            ),
+          }))}
+          selected={selectedTags.map(
+            (tag) => `${tag.tag_key}=${tag.tag_value}`
+          )}
+          handleSelect={(option) => {
+            const [tag_key, tag_value] = option.key.split("=");
+            const selectedTag = availableTags.find(
+              (tag) => tag.tag_key === tag_key && tag.tag_value === tag_value
+            );
+            if (selectedTag) {
+              handleTagSelect(selectedTag);
+            }
+          }}
+          icon={<FiTag size={16} />}
+          defaultDisplay="Tags"
+          resetValues={resetTags}
+          dropdownColor="bg-background-search-filter-dropdown"
+          width="w-fit max-w-24 ellipsis truncate"
+          dropdownWidth="max-w-80 w-fit"
+          optionClassName="truncate w-full break-all ellipsis"
+        />
+      )}
     </div>
   );
 }

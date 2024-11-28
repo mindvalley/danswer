@@ -4,21 +4,36 @@ from uuid import UUID
 
 from pydantic import BaseModel
 from pydantic import Field
-from pydantic import model_validator
 
 from danswer.configs.app_configs import MASK_CREDENTIAL_PREFIX
 from danswer.configs.constants import DocumentSource
 from danswer.connectors.models import DocumentErrorSummary
 from danswer.connectors.models import InputType
+from danswer.db.enums import AccessType
 from danswer.db.enums import ConnectorCredentialPairStatus
 from danswer.db.models import Connector
 from danswer.db.models import ConnectorCredentialPair
 from danswer.db.models import Credential
+from danswer.db.models import Document as DbDocument
 from danswer.db.models import IndexAttempt
 from danswer.db.models import IndexAttemptError as DbIndexAttemptError
 from danswer.db.models import IndexingStatus
 from danswer.db.models import TaskStatus
 from danswer.server.utils import mask_credential_dict
+
+
+class DocumentSyncStatus(BaseModel):
+    doc_id: str
+    last_synced: datetime | None
+    last_modified: datetime | None
+
+    @classmethod
+    def from_model(cls, doc: DbDocument) -> "DocumentSyncStatus":
+        return DocumentSyncStatus(
+            doc_id=doc.id,
+            last_synced=doc.last_synced,
+            last_modified=doc.last_modified,
+        )
 
 
 class DocumentInfo(BaseModel):
@@ -49,11 +64,11 @@ class ConnectorBase(BaseModel):
 
 
 class ConnectorUpdateRequest(ConnectorBase):
-    is_public: bool = True
+    access_type: AccessType
     groups: list[int] = Field(default_factory=list)
 
     def to_connector_base(self) -> ConnectorBase:
-        return ConnectorBase(**self.model_dump(exclude={"is_public", "groups"}))
+        return ConnectorBase(**self.model_dump(exclude={"access_type", "groups"}))
 
 
 class ConnectorSnapshot(ConnectorBase):
@@ -218,9 +233,12 @@ class CCPairFullInfo(BaseModel):
     number_of_index_attempts: int
     last_index_attempt_status: IndexingStatus | None
     latest_deletion_attempt: DeletionAttemptSnapshot | None
-    is_public: bool
+    access_type: AccessType
     is_editable_for_current_user: bool
     deletion_failure_message: str | None
+    indexing: bool
+    creator: UUID | None
+    creator_email: str | None
 
     @classmethod
     def from_models(
@@ -231,6 +249,7 @@ class CCPairFullInfo(BaseModel):
         last_index_attempt: IndexAttempt | None,
         num_docs_indexed: int,  # not ideal, but this must be computed separately
         is_editable_for_current_user: bool,
+        indexing: bool,
     ) -> "CCPairFullInfo":
         # figure out if we need to artificially deflate the number of docs indexed.
         # This is required since the total number of docs indexed by a CC Pair is
@@ -261,10 +280,23 @@ class CCPairFullInfo(BaseModel):
             number_of_index_attempts=number_of_index_attempts,
             last_index_attempt_status=last_indexing_status,
             latest_deletion_attempt=latest_deletion_attempt,
-            is_public=cc_pair_model.is_public,
+            access_type=cc_pair_model.access_type,
             is_editable_for_current_user=is_editable_for_current_user,
             deletion_failure_message=cc_pair_model.deletion_failure_message,
+            indexing=indexing,
+            creator=cc_pair_model.creator_id,
+            creator_email=cc_pair_model.creator.email
+            if cc_pair_model.creator
+            else None,
         )
+
+
+class CeleryTaskStatus(BaseModel):
+    id: str
+    name: str
+    status: TaskStatus
+    start_time: datetime | None
+    register_time: datetime | None
 
 
 class FailedConnectorIndexingStatus(BaseModel):
@@ -288,7 +320,7 @@ class ConnectorIndexingStatus(BaseModel):
     credential: CredentialSnapshot
     owner: str
     groups: list[int]
-    public_doc: bool
+    access_type: AccessType
     last_finished_status: IndexingStatus | None
     last_status: IndexingStatus | None
     last_success: datetime | None
@@ -298,6 +330,10 @@ class ConnectorIndexingStatus(BaseModel):
     deletion_attempt: DeletionAttemptSnapshot | None
     is_deletable: bool
 
+    # index attempt in db can be marked successful while celery/redis
+    # is stil running/cleaning up
+    in_progress: bool
+
 
 class ConnectorCredentialPairIdentifier(BaseModel):
     connector_id: int
@@ -306,7 +342,8 @@ class ConnectorCredentialPairIdentifier(BaseModel):
 
 class ConnectorCredentialPairMetadata(BaseModel):
     name: str | None = None
-    is_public: bool | None = None
+    access_type: AccessType
+    auto_sync_options: dict[str, Any] | None = None
     groups: list[int] = Field(default_factory=list)
 
 
@@ -360,18 +397,7 @@ class GoogleServiceAccountKey(BaseModel):
 
 
 class GoogleServiceAccountCredentialRequest(BaseModel):
-    google_drive_delegated_user: str | None = None  # email of user to impersonate
-    gmail_delegated_user: str | None = None  # email of user to impersonate
-
-    @model_validator(mode="after")
-    def check_user_delegation(self) -> "GoogleServiceAccountCredentialRequest":
-        if (self.google_drive_delegated_user is None) == (
-            self.gmail_delegated_user is None
-        ):
-            raise ValueError(
-                "Exactly one of google_drive_delegated_user or gmail_delegated_user must be set"
-            )
-        return self
+    google_primary_admin: str | None = None  # email of user to impersonate
 
 
 class FileUploadResponse(BaseModel):

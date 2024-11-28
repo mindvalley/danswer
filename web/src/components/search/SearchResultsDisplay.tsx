@@ -7,13 +7,17 @@ import {
   SearchResponse,
 } from "@/lib/search/interfaces";
 import { usePopup } from "../admin/connectors/Popup";
-import { AlertIcon, BroomIcon, MagnifyingIcon, UndoIcon } from "../icons/icons";
+import { AlertIcon, MagnifyingIcon, UndoIcon } from "../icons/icons";
 import { AgenticDocumentDisplay, DocumentDisplay } from "./DocumentDisplay";
 import { searchState } from "./SearchSection";
-import { useContext, useEffect, useState } from "react";
-import { Tooltip } from "../tooltip/Tooltip";
+import { useEffect, useState } from "react";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import KeyboardSymbol from "@/lib/browserUtilities";
-import { SettingsContext } from "../settings/SettingsProvider";
 import { DISABLE_LLM_DOC_RELEVANCE } from "@/lib/constants";
 
 const getSelectedDocumentIds = (
@@ -73,7 +77,7 @@ export const SearchResultsDisplay = ({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [performSweep, agenticResults]);
 
   if (!searchResponse) {
     return null;
@@ -165,52 +169,60 @@ export const SearchResultsDisplay = ({
 
       {documents && documents.length > 0 && (
         <div className="mt-4">
-          <div className="font-bold flex justify-between text-emphasis border-b mb-3 pb-1 border-border text-lg">
+          <div className="font-bold flex h-12 justify-between text-emphasis border-b mb-3 pb-1 border-border text-lg">
             <p>Results</p>
             {!DISABLE_LLM_DOC_RELEVANCE &&
               (contentEnriched || searchResponse.additional_relevance) && (
-                <Tooltip
-                  delayDuration={1000}
-                  content={<div className="flex">{commandSymbol}O</div>}
-                >
-                  <button
-                    onClick={() => {
-                      performSweep();
-                      if (agenticResults) {
-                        setShowAll((showAll) => !showAll);
-                      }
-                    }}
-                    className={`flex items-center justify-center animate-fade-in-up rounded-lg p-1 text-xs transition-all duration-300 w-20 h-8 ${
-                      !sweep
-                        ? "bg-green-500 text-text-800"
-                        : "bg-rose-700 text-text-100"
-                    }`}
-                    style={{
-                      transform: sweep ? "rotateZ(180deg)" : "rotateZ(0deg)",
-                    }}
-                  >
-                    <div
-                      className={`flex items-center ${sweep ? "rotate-180" : ""}`}
-                    >
-                      <span></span>
-                      {!sweep
-                        ? agenticResults
-                          ? "Show All"
-                          : "Focus"
-                        : agenticResults
-                          ? "Focus"
-                          : "Show All"}
+                <TooltipProvider delayDuration={1000}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          performSweep();
+                          if (agenticResults) {
+                            setShowAll((showAll) => !showAll);
+                          }
+                        }}
+                        className={`flex items-center justify-center animate-fade-in-up rounded-lg p-1 text-xs transition-all duration-300 w-20 h-8 ${
+                          !sweep
+                            ? "bg-background-agentic-toggled text-text-agentic-toggled"
+                            : "bg-background-agentic-untoggled text-text-agentic-untoggled"
+                        }`}
+                        style={{
+                          transform: sweep
+                            ? "rotateZ(180deg)"
+                            : "rotateZ(0deg)",
+                        }}
+                      >
+                        <div
+                          className={`flex items-center ${
+                            sweep ? "rotate-180" : ""
+                          }`}
+                        >
+                          <span></span>
+                          {!sweep
+                            ? agenticResults
+                              ? "Show All"
+                              : "Focus"
+                            : agenticResults
+                              ? "Focus"
+                              : "Show All"}
 
-                      <span className="ml-1">
-                        {!sweep ? (
-                          <MagnifyingIcon className="h-4 w-4" />
-                        ) : (
-                          <UndoIcon className="h-4 w-4" />
-                        )}
-                      </span>
-                    </div>
-                  </button>
-                </Tooltip>
+                          <span className="ml-1">
+                            {!sweep ? (
+                              <MagnifyingIcon className="h-4 w-4" />
+                            ) : (
+                              <UndoIcon className="h-4 w-4" />
+                            )}
+                          </span>
+                        </div>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="flex">{commandSymbol}O</div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
           </div>
 

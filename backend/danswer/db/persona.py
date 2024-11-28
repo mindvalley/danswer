@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import datetime
 from functools import lru_cache
 from uuid import UUID
 
@@ -19,19 +20,20 @@ from danswer.auth.schemas import UserRole
 from danswer.configs.chat_configs import BING_API_KEY
 from danswer.configs.chat_configs import CONTEXT_CHUNKS_ABOVE
 from danswer.configs.chat_configs import CONTEXT_CHUNKS_BELOW
+from danswer.context.search.enums import RecencyBiasSetting
 from danswer.db.constants import SLACK_BOT_PERSONA_PREFIX
 from danswer.db.engine import get_sqlalchemy_engine
 from danswer.db.models import DocumentSet
 from danswer.db.models import Persona
 from danswer.db.models import Persona__User
 from danswer.db.models import Persona__UserGroup
+from danswer.db.models import PersonaCategory
 from danswer.db.models import Prompt
 from danswer.db.models import StarterMessage
 from danswer.db.models import Tool
 from danswer.db.models import User
 from danswer.db.models import User__UserGroup
 from danswer.db.models import UserGroup
-from danswer.search.enums import RecencyBiasSetting
 from danswer.server.features.persona.models import CreatePersonaRequest
 from danswer.server.features.persona.models import PersonaSnapshot
 from danswer.utils.logger import setup_logger
@@ -111,6 +113,31 @@ def fetch_persona_by_id(
     return persona
 
 
+def get_best_persona_id_for_user(
+    db_session: Session, user: User | None, persona_id: int | None = None
+) -> int | None:
+    if persona_id is not None:
+        stmt = select(Persona).where(Persona.id == persona_id).distinct()
+        stmt = _add_user_filters(
+            stmt=stmt,
+            user=user,
+            # We don't want to filter by editable here, we just want to see if the
+            # persona is usable by the user
+            get_editable=False,
+        )
+        persona = db_session.scalars(stmt).one_or_none()
+        if persona:
+            return persona.id
+
+    # If the persona is not found, or the slack bot is using doc sets instead of personas,
+    # we need to find the best persona for the user
+    # This is the persona with the highest display priority that the user has access to
+    stmt = select(Persona).order_by(Persona.display_priority.desc()).distinct()
+    stmt = _add_user_filters(stmt=stmt, user=user, get_editable=True)
+    persona = db_session.scalars(stmt).one_or_none()
+    return persona.id if persona else None
+
+
 def _get_persona_by_name(
     persona_name: str, user: User | None, db_session: Session
 ) -> Persona | None:
@@ -178,6 +205,7 @@ def create_update_persona(
     except ValueError as e:
         logger.exception("Failed to create persona")
         raise HTTPException(status_code=400, detail=str(e))
+
     return PersonaSnapshot.from_model(persona)
 
 
@@ -256,9 +284,8 @@ def get_personas(
 ) -> Sequence[Persona]:
     stmt = select(Persona).distinct()
     stmt = _add_user_filters(stmt=stmt, user=user, get_editable=get_editable)
-
     if not include_default:
-        stmt = stmt.where(Persona.default_persona.is_(False))
+        stmt = stmt.where(Persona.builtin_persona.is_(False))
     if not include_slack_bot_personas:
         stmt = stmt.where(not_(Persona.name.startswith(SLACK_BOT_PERSONA_PREFIX)))
     if not include_deleted:
@@ -306,7 +333,7 @@ def mark_delete_persona_by_name(
 ) -> None:
     stmt = (
         update(Persona)
-        .where(Persona.name == persona_name, Persona.default_persona == is_default)
+        .where(Persona.name == persona_name, Persona.builtin_persona == is_default)
         .values(deleted=True)
     )
 
@@ -326,7 +353,6 @@ def update_all_personas_display_priority(
 
     for persona in personas:
         persona.display_priority = display_priority_map[persona.id]
-
     db_session.commit()
 
 
@@ -389,6 +415,9 @@ def upsert_prompt(
     return prompt
 
 
+# NOTE: This operation cannot update persona configuration options that
+# are core to the persona, such as its display priority and
+# whether or not the assistant is a built-in / default assistant
 def upsert_persona(
     user: User | None,
     name: str,
@@ -406,7 +435,6 @@ def upsert_persona(
     document_set_ids: list[int] | None = None,
     tool_ids: list[int] | None = None,
     persona_id: int | None = None,
-    default_persona: bool = False,
     commit: bool = True,
     icon_color: str | None = None,
     icon_shape: int | None = None,
@@ -414,6 +442,10 @@ def upsert_persona(
     display_priority: int | None = None,
     is_visible: bool = True,
     remove_image: bool | None = None,
+    search_start_date: datetime | None = None,
+    builtin_persona: bool = False,
+    is_default_persona: bool = False,
+    category_id: int | None = None,
     chunks_above: int = CONTEXT_CHUNKS_ABOVE,
     chunks_below: int = CONTEXT_CHUNKS_BELOW,
 ) -> Persona:
@@ -454,8 +486,8 @@ def upsert_persona(
         validate_persona_tools(tools)
 
     if persona:
-        if not default_persona and persona.default_persona:
-            raise ValueError("Cannot update default persona with non-default.")
+        if persona.builtin_persona and not builtin_persona:
+            raise ValueError("Cannot update builtin persona with non-builtin.")
 
         # this checks if the user has permission to edit the persona
         persona = fetch_persona_by_id(
@@ -470,7 +502,6 @@ def upsert_persona(
         persona.llm_relevance_filter = llm_relevance_filter
         persona.llm_filter_extraction = llm_filter_extraction
         persona.recency_bias = recency_bias
-        persona.default_persona = default_persona
         persona.llm_model_provider_override = llm_model_provider_override
         persona.llm_model_version_override = llm_model_version_override
         persona.starter_messages = starter_messages
@@ -480,9 +511,9 @@ def upsert_persona(
         persona.icon_shape = icon_shape
         if remove_image or uploaded_image_id:
             persona.uploaded_image_id = uploaded_image_id
-        persona.display_priority = display_priority
         persona.is_visible = is_visible
-
+        persona.search_start_date = search_start_date
+        persona.category_id = category_id
         # Do not delete any associations manually added unless
         # a new updated list is provided
         if document_sets is not None:
@@ -509,7 +540,7 @@ def upsert_persona(
             llm_relevance_filter=llm_relevance_filter,
             llm_filter_extraction=llm_filter_extraction,
             recency_bias=recency_bias,
-            default_persona=default_persona,
+            builtin_persona=builtin_persona,
             prompts=prompts or [],
             document_sets=document_sets or [],
             llm_model_provider_override=llm_model_provider_override,
@@ -521,6 +552,9 @@ def upsert_persona(
             uploaded_image_id=uploaded_image_id,
             display_priority=display_priority,
             is_visible=is_visible,
+            search_start_date=search_start_date,
+            is_default_persona=is_default_persona,
+            category_id=category_id,
         )
         db_session.add(persona)
 
@@ -550,7 +584,7 @@ def delete_old_default_personas(
     Need a more graceful fix later or those need to never have IDs"""
     stmt = (
         update(Persona)
-        .where(Persona.default_persona, Persona.id > 0)
+        .where(Persona.builtin_persona, Persona.id > 0)
         .values(deleted=True, name=func.concat(Persona.name, "_old"))
     )
 
@@ -732,9 +766,44 @@ def delete_persona_by_name(
     persona_name: str, db_session: Session, is_default: bool = True
 ) -> None:
     stmt = delete(Persona).where(
-        Persona.name == persona_name, Persona.default_persona == is_default
+        Persona.name == persona_name, Persona.builtin_persona == is_default
     )
 
     db_session.execute(stmt)
+    db_session.commit()
 
+
+def get_assistant_categories(db_session: Session) -> list[PersonaCategory]:
+    return db_session.query(PersonaCategory).all()
+
+
+def create_assistant_category(
+    db_session: Session, name: str, description: str
+) -> PersonaCategory:
+    category = PersonaCategory(name=name, description=description)
+    db_session.add(category)
+    db_session.commit()
+    return category
+
+
+def update_persona_category(
+    category_id: int,
+    category_description: str,
+    category_name: str,
+    db_session: Session,
+) -> None:
+    persona_category = (
+        db_session.query(PersonaCategory)
+        .filter(PersonaCategory.id == category_id)
+        .one_or_none()
+    )
+    if persona_category is None:
+        raise ValueError(f"Persona category with ID {category_id} does not exist")
+    persona_category.description = category_description
+    persona_category.name = category_name
+    db_session.commit()
+
+
+def delete_persona_category(category_id: int, db_session: Session) -> None:
+    db_session.query(PersonaCategory).filter(PersonaCategory.id == category_id).delete()
     db_session.commit()

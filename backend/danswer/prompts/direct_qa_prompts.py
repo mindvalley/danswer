@@ -2,13 +2,11 @@
 # It is used also for the one shot direct QA flow
 import json
 
-from danswer.prompts.constants import (
-    DEFAULT_IGNORE_STATEMENT,
-    FINAL_QUERY_PAT,
-    GENERAL_SEP_PAT,
-    QUESTION_PAT,
-    THOUGHT_PAT,
-)
+from danswer.prompts.constants import DEFAULT_IGNORE_STATEMENT
+from danswer.prompts.constants import FINAL_QUERY_PAT
+from danswer.prompts.constants import GENERAL_SEP_PAT
+from danswer.prompts.constants import QUESTION_PAT
+from danswer.prompts.constants import THOUGHT_PAT
 
 ONE_SHOT_SYSTEM_PROMPT = """
 You are a question answering system that is constantly learning and improving.
@@ -73,7 +71,8 @@ EMPTY_SAMPLE_JSON = {
 JSON_PROMPT = f"""
 {{system_prompt}}
 {REQUIRE_JSON}
-{{context_block}}{{history_block}}{{task_prompt}}
+{{context_block}}{{history_block}}
+{{task_prompt}}
 
 SAMPLE RESPONSE:
 ```
@@ -112,23 +111,11 @@ Refer to the provided context documents when responding to me. \
 Make sure you take into account my employee information in the system message.{DEFAULT_IGNORE_STATEMENT} \
 You should always get right to the point, and never use extraneous language.
 
-{{task_prompt}}
+{{history_block}}{{task_prompt}}
 
 {QUESTION_PAT.upper()}
 {{user_query}}
 """
-
-
-# For weak LLM which only takes one chunk and cannot output json
-# Also not requiring quotes as it tends to not work
-WEAK_LLM_PROMPT = f"""
-{{system_prompt}}
-{{context_block}}
-{{task_prompt}}
-
-{QUESTION_PAT.upper()}
-{{user_query}}
-""".strip()
 
 
 # This is only for visualization for the users to specify their own prompts

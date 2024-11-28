@@ -1,31 +1,32 @@
 import json
+from uuid import UUID
 
 import requests
 from requests.models import Response
 
+from danswer.context.search.models import RetrievalDetails
 from danswer.file_store.models import FileDescriptor
 from danswer.llm.override_models import LLMOverride
 from danswer.llm.override_models import PromptOverride
 from danswer.one_shot_answer.models import DirectQARequest
 from danswer.one_shot_answer.models import ThreadMessage
-from danswer.search.models import RetrievalDetails
 from danswer.server.query_and_chat.models import ChatSessionCreationRequest
 from danswer.server.query_and_chat.models import CreateChatMessageRequest
 from tests.integration.common_utils.constants import API_SERVER_URL
 from tests.integration.common_utils.constants import GENERAL_HEADERS
+from tests.integration.common_utils.test_models import DATestChatMessage
+from tests.integration.common_utils.test_models import DATestChatSession
+from tests.integration.common_utils.test_models import DATestUser
 from tests.integration.common_utils.test_models import StreamedResponse
-from tests.integration.common_utils.test_models import TestChatMessage
-from tests.integration.common_utils.test_models import TestChatSession
-from tests.integration.common_utils.test_models import TestUser
 
 
 class ChatSessionManager:
     @staticmethod
     def create(
-        persona_id: int = -1,
+        persona_id: int = 0,
         description: str = "Test chat session",
-        user_performing_action: TestUser | None = None,
-    ) -> TestChatSession:
+        user_performing_action: DATestUser | None = None,
+    ) -> DATestChatSession:
         chat_session_creation_req = ChatSessionCreationRequest(
             persona_id=persona_id, description=description
         )
@@ -38,16 +39,16 @@ class ChatSessionManager:
         )
         response.raise_for_status()
         chat_session_id = response.json()["chat_session_id"]
-        return TestChatSession(
+        return DATestChatSession(
             id=chat_session_id, persona_id=persona_id, description=description
         )
 
     @staticmethod
     def send_message(
-        chat_session_id: int,
+        chat_session_id: UUID,
         message: str,
         parent_message_id: int | None = None,
-        user_performing_action: TestUser | None = None,
+        user_performing_action: DATestUser | None = None,
         file_descriptors: list[FileDescriptor] = [],
         prompt_id: int | None = None,
         search_doc_ids: list[int] | None = None,
@@ -90,7 +91,7 @@ class ChatSessionManager:
     def get_answer_with_quote(
         persona_id: int,
         message: str,
-        user_performing_action: TestUser | None = None,
+        user_performing_action: DATestUser | None = None,
     ) -> StreamedResponse:
         direct_qa_request = DirectQARequest(
             messages=[ThreadMessage(message=message)],
@@ -137,11 +138,11 @@ class ChatSessionManager:
 
     @staticmethod
     def get_chat_history(
-        chat_session: TestChatSession,
-        user_performing_action: TestUser | None = None,
-    ) -> list[TestChatMessage]:
+        chat_session: DATestChatSession,
+        user_performing_action: DATestUser | None = None,
+    ) -> list[DATestChatMessage]:
         response = requests.get(
-            f"{API_SERVER_URL}/chat/history/{chat_session.id}",
+            f"{API_SERVER_URL}/chat/get-chat-session/{chat_session.id}",
             headers=user_performing_action.headers
             if user_performing_action
             else GENERAL_HEADERS,
@@ -149,12 +150,11 @@ class ChatSessionManager:
         response.raise_for_status()
 
         return [
-            TestChatMessage(
-                id=msg["id"],
+            DATestChatMessage(
+                id=msg["message_id"],
                 chat_session_id=chat_session.id,
-                parent_message_id=msg.get("parent_message_id"),
+                parent_message_id=msg.get("parent_message"),
                 message=msg["message"],
-                response=msg.get("response", ""),
             )
-            for msg in response.json()
+            for msg in response.json()["messages"]
         ]

@@ -5,6 +5,7 @@ class IndexingStatus(str, PyEnum):
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
     SUCCESS = "success"
+    CANCELED = "canceled"
     FAILED = "failed"
     COMPLETED_WITH_ERRORS = "completed_with_errors"
 
@@ -12,6 +13,7 @@ class IndexingStatus(str, PyEnum):
         terminal_states = {
             IndexingStatus.SUCCESS,
             IndexingStatus.COMPLETED_WITH_ERRORS,
+            IndexingStatus.CANCELED,
             IndexingStatus.FAILED,
         }
         return self in terminal_states
@@ -51,3 +53,9 @@ class ConnectorCredentialPairStatus(str, PyEnum):
 
     def is_active(self) -> bool:
         return self == ConnectorCredentialPairStatus.ACTIVE
+
+
+class AccessType(str, PyEnum):
+    PUBLIC = "public"
+    PRIVATE = "private"
+    SYNC = "sync"

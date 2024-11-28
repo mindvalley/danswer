@@ -1,4 +1,4 @@
-import { FiCheck, FiChevronDown, FiX, FiXCircle } from "react-icons/fi";
+import { FiCheck, FiChevronDown, FiXCircle } from "react-icons/fi";
 import { CustomDropdown } from "../../Dropdown";
 
 interface Option {
@@ -16,6 +16,8 @@ export function FilterDropdown({
   dropdownWidth,
   optionClassName,
   resetValues,
+  backgroundColor,
+  dropdownColor,
 }: {
   options: Option[];
   selected: string[];
@@ -26,6 +28,8 @@ export function FilterDropdown({
   dropdownWidth?: string;
   optionClassName?: string;
   resetValues?: () => void;
+  backgroundColor?: string;
+  dropdownColor?: string;
 }) {
   return (
     <div>
@@ -36,35 +40,40 @@ export function FilterDropdown({
               border 
               border-border 
               rounded-lg 
-              bg-background
+              ${backgroundColor || "bg-background"}
               flex 
               flex-col 
               ${dropdownWidth || width}
               max-h-96 
-              overflow-y-auto 
-              overscroll-contain`}
+              overflow-y-scroll
+              overscroll-contain
+              `}
           >
             {options.map((option, ind) => {
               const isSelected = selected.includes(option.key);
               return (
                 <div
-                  key={option.key}
+                  key={`${option.key}-1`}
                   className={`
-                    ${optionClassName}
-                    flex
-                    px-3
-                    text-sm
-                    py-2.5
-                    select-none
-                    cursor-pointer
-                    w-fit
-                    text-emphasis
-                    gap-x-1
-                    hover:bg-hover-light
-                    ${
-                      ind === options.length - 1 ? "" : "border-b border-border"
-                    } 
-                  `}
+                      ${optionClassName}
+                      flex
+                      px-3
+                      text-sm
+                      py-2.5
+                      select-none
+                      cursor-pointer
+                      flex-none
+                      w-fit
+                      text-emphasis
+                      gap-x-1
+                      ${dropdownColor || "bg-background"}
+                      hover:bg-hover
+                      ${
+                        ind === options.length - 1
+                          ? ""
+                          : "border-b border-border"
+                      } 
+                    `}
                   onClick={(event) => {
                     handleSelect(option);
                     event.preventDefault();
@@ -95,6 +104,7 @@ export function FilterDropdown({
             gap-x-2
             border-border
             cursor-pointer 
+            ${backgroundColor || "bg-background"}
             hover:bg-hover-light`}
         >
           <div className="flex-none my-auto">{icon}</div>

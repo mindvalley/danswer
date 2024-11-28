@@ -36,7 +36,7 @@ const ToggleSwitch = () => {
   };
 
   return (
-    <div className="bg-gray-100 mobile:mt-8 flex rounded-full p-1">
+    <div className="bg-background-toggle mobile:mt-8 flex rounded-full p-1">
       <div
         className={`absolute mobile:mt-8 top-1 bottom-1 ${
           activeTab === "chat" ? "w-[45%]" : "w-[50%]"
@@ -47,8 +47,8 @@ const ToggleSwitch = () => {
       <button
         className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300 ease-in-out flex items-center relative z-10 ${
           activeTab === "search"
-            ? "text-gray-800"
-            : "text-gray-500 hover:text-gray-700"
+            ? "text-text-application-toggled"
+            : "text-text-application-untoggled hover:text-text-application-untoggled-hover"
         }`}
         onClick={() => handleTabChange("search")}
       >
@@ -66,8 +66,8 @@ const ToggleSwitch = () => {
       <button
         className={`px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300 ease-in-out flex items-center relative z-10 ${
           activeTab === "chat"
-            ? "text-gray-800"
-            : "text-gray-500 hover:text-gray-700"
+            ? "text-text-application-toggled"
+            : "text-text-application-untoggled hover:text-text-application-untoggled-hover"
         }`}
         onClick={() => handleTabChange("chat")}
       >
@@ -148,7 +148,9 @@ export default function FunctionalWrapper({
       {(!settings ||
         (settings.search_page_enabled && settings.chat_page_enabled)) && (
         <div
-          className={`mobile:hidden z-30 flex fixed ${chatBannerPresent ? (twoLines ? "top-20" : "top-14") : "top-4"} left-1/2 transform -translate-x-1/2`}
+          className={`mobile:hidden z-30 flex fixed ${
+            chatBannerPresent ? (twoLines ? "top-20" : "top-14") : "top-4"
+          } left-1/2 transform -translate-x-1/2`}
         >
           <div
             style={{ transition: "width 0.30s ease-out" }}

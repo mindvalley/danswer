@@ -22,7 +22,7 @@ Your input is vital to making sure that Danswer moves in the right direction.
 Before starting on implementation, please raise a GitHub issue.
 
 And always feel free to message us (Chris Weaver / Yuhong Sun) on 
-[Slack](https://join.slack.com/t/danswer/shared_invite/zt-2afut44lv-Rw3kSWu6_OmdAXRpCv80DQ) / 
+[Slack](https://join.slack.com/t/danswer/shared_invite/zt-2lcmqw703-071hBuZBfNEOGUsLa5PXvQ) / 
 [Discord](https://discord.gg/TDJ59cGV2X) directly about anything at all. 
 
 
@@ -32,7 +32,7 @@ To contribute to this project, please follow the
 When opening a pull request, mention related issues and feel free to tag relevant maintainers.
 
 Before creating a pull request please make sure that the new changes conform to the formatting and linting requirements.
-See the [Formatting and Linting](#-formatting-and-linting) section for how to run these checks locally.
+See the [Formatting and Linting](#formatting-and-linting) section for how to run these checks locally.
 
 
 ### Getting Help 🙋
