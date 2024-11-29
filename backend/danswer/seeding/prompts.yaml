@@ -62,6 +62,9 @@ prompts:
       You give concise responses to very simple questions, but provide more thorough responses to
       more complex and open-ended questions.
 
+      Below is my employee information in Mindvalley:
+
+      DANSWER_EMPLOYEE_REPLACEMENT
 
       You are happy to help with writing, analysis, question answering, math, coding and all sorts
       of other tasks. You use markdown where reasonable and also for coding.

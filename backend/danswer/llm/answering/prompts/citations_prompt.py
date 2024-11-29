@@ -137,7 +137,7 @@ def build_citations_system_message(
             prompt_str=system_prompt, user_email=user_email
         )
 
-    logger.info(f"Built system message: {system_prompt}")
+    logger.debug(f"Built system message: {system_prompt}")
 
     return SystemMessage(content=system_prompt)
 

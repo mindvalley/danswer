@@ -1,9 +1,7 @@
 import datetime
 
-from danswer.configs.danswerbot_configs import (
-    DANSWER_BOT_FEEDBACK_REMINDER,
-    DANSWER_REACT_EMOJI,
-)
+from danswer.configs.danswerbot_configs import DANSWER_BOT_FEEDBACK_REMINDER
+from danswer.configs.danswerbot_configs import DANSWER_REACT_EMOJI
 from danswer.danswerbot.slack.blocks import get_feedback_reminder_blocks
 from danswer.danswerbot.slack.handlers.handle_regular_answer import (
     handle_regular_answer,
@@ -12,13 +10,11 @@ from danswer.danswerbot.slack.handlers.handle_standard_answers import (
     handle_standard_answers,
 )
 from danswer.danswerbot.slack.models import SlackMessageInfo
-from danswer.danswerbot.slack.utils import (
-    fetch_slack_user_ids_from_emails,
-    fetch_user_ids_from_groups,
-    respond_in_thread,
-    slack_usage_report,
-    update_emote_react,
-)
+from danswer.danswerbot.slack.utils import fetch_slack_user_ids_from_emails
+from danswer.danswerbot.slack.utils import fetch_user_ids_from_groups
+from danswer.danswerbot.slack.utils import respond_in_thread
+from danswer.danswerbot.slack.utils import slack_usage_report
+from danswer.danswerbot.slack.utils import update_emote_react
 from danswer.db.engine import get_session_with_tenant
 from danswer.db.models import SlackChannelConfig
 from danswer.db.users import add_slack_user_if_not_exists
@@ -218,18 +214,18 @@ def handle_message(
         if message_info.email:
             add_slack_user_if_not_exists(db_session, message_info.email)
 
-        # first check if we need to respond with a standard answer
-        used_standard_answer = handle_standard_answers(
-            message_info=message_info,
-            receiver_ids=send_to,
-            slack_channel_config=slack_channel_config,
-            prompt=prompt,
-            logger=logger,
-            client=client,
-            db_session=db_session,
-        )
-        if used_standard_answer:
-            return False
+        #first check if we need to respond with a standard answer
+        # used_standard_answer = handle_standard_answers(
+        #     message_info=message_info,
+        #     receiver_ids=send_to,
+        #     slack_channel_config=slack_channel_config,
+        #     prompt=prompt,
+        #     logger=logger,
+        #     client=client,
+        #     db_session=db_session,
+        # )
+        # if used_standard_answer:
+        #     return False
 
         # if no standard answer applies, try a regular answer
         issue_with_regular_answer = handle_regular_answer(

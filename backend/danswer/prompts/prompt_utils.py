@@ -4,24 +4,24 @@ from typing import cast
 
 import redis
 from danswer.chat.models import LlmDoc
-from danswer.configs.app_configs import AIRTABLE_API_TOKEN
-from danswer.configs.app_configs import AIRTABLE_EMPLOYEE_BASE_ID
-from danswer.configs.app_configs import AIRTABLE_EMPLOYEE_TABLE_NAME_OR_ID
-from danswer.configs.app_configs import REDIS_DB_NUMBER
-from danswer.configs.app_configs import REDIS_HOST
-from danswer.configs.app_configs import REDIS_PORT
+from danswer.configs.app_configs import (
+    AIRTABLE_API_TOKEN,
+    AIRTABLE_EMPLOYEE_BASE_ID,
+    AIRTABLE_EMPLOYEE_TABLE_NAME_OR_ID,
+    REDIS_DB_NUMBER,
+    REDIS_HOST,
+    REDIS_PORT,
+)
 from danswer.configs.chat_configs import LANGUAGE_HINT
 from danswer.configs.constants import DocumentSource
 from danswer.context.search.models import InferenceChunk
 from danswer.db.models import Prompt
 from danswer.llm.answering.models import PromptConfig
-from danswer.prompts.chat_prompts import ADDITIONAL_INFO
-from danswer.prompts.chat_prompts import CITATION_REMINDER
+from danswer.prompts.chat_prompts import ADDITIONAL_INFO, CITATION_REMINDER
 from danswer.prompts.constants import CODE_BLOCK_PAT
 from danswer.utils.logger import setup_logger
 from langchain_core.messages import BaseMessage
 from pyairtable import Api as AirtableApi
-
 
 logger = setup_logger()
 
@@ -74,7 +74,7 @@ def add_employee_context_to_prompt(prompt_str: str, user_email: str) -> str:
     # Check Redis for cached employee context
     cached_context = redis_client.get(user_email)
     if cached_context:
-        logger.info("Employee context retrieved from Redis.")
+        logger.info(f"Employee context retrieved from Redis for email: {user_email}")
         return prompt_str.replace(
             DANSWER_EMPLOYEE_REPLACEMENT, cached_context.decode("utf-8")
         )
