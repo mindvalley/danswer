@@ -4,23 +4,26 @@ from typing import cast
 
 import redis
 from danswer.chat.models import LlmDoc
-from danswer.configs.app_configs import AIRTABLE_API_TOKEN
-from danswer.configs.app_configs import AIRTABLE_EMPLOYEE_BASE_ID
-from danswer.configs.app_configs import AIRTABLE_EMPLOYEE_TABLE_NAME_OR_ID
-from danswer.configs.app_configs import REDIS_DB_NUMBER
-from danswer.configs.app_configs import REDIS_HOST
-from danswer.configs.app_configs import REDIS_PORT
+from danswer.configs.app_configs import (
+    AIRTABLE_API_TOKEN,
+    AIRTABLE_EMPLOYEE_BASE_ID,
+    AIRTABLE_EMPLOYEE_TABLE_NAME_OR_ID,
+    REDIS_DB_NUMBER,
+    REDIS_HOST,
+    REDIS_PORT,
+)
 from danswer.configs.chat_configs import LANGUAGE_HINT
 from danswer.configs.constants import DocumentSource
+from danswer.context.search.models import InferenceChunk
 from danswer.db.models import Prompt
 from danswer.llm.answering.models import PromptConfig
-from danswer.prompts.chat_prompts import ADDITIONAL_INFO
-from danswer.prompts.chat_prompts import CITATION_REMINDER
+from danswer.prompts.chat_prompts import ADDITIONAL_INFO, CITATION_REMINDER
 from danswer.prompts.constants import CODE_BLOCK_PAT
-from danswer.search.models import InferenceChunk
 from danswer.utils.logger import setup_logger
 from langchain_core.messages import BaseMessage
 from pyairtable import Api as AirtableApi
+
+logger = setup_logger()
 
 logger = setup_logger()
 
@@ -71,7 +74,7 @@ def add_employee_context_to_prompt(prompt_str: str, user_email: str) -> str:
     # Check Redis for cached employee context
     cached_context = redis_client.get(user_email)
     if cached_context:
-        logger.info("Employee context retrieved from Redis.")
+        logger.info(f"Employee context retrieved from Redis for email: {user_email}")
         return prompt_str.replace(
             DANSWER_EMPLOYEE_REPLACEMENT, cached_context.decode("utf-8")
         )
@@ -186,14 +189,23 @@ def find_last_index(lst: list[int], max_prompt_tokens: int) -> int:
     before the list exceeds the maximum"""
     running_sum = 0
 
+    if not lst:
+        logger.warning("Empty message history passed to find_last_index")
+        return 0
+
     last_ind = 0
     for i in range(len(lst) - 1, -1, -1):
         running_sum += lst[i] + _PER_MESSAGE_TOKEN_BUFFER
         if running_sum > max_prompt_tokens:
             last_ind = i + 1
             break
+
     if last_ind >= len(lst):
+        logger.error(
+            f"Last message alone is too large! max_prompt_tokens: {max_prompt_tokens}, message_token_counts: {lst}"
+        )
         raise ValueError("Last message alone is too large!")
+
     return last_ind
 
 

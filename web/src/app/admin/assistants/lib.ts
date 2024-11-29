@@ -1,5 +1,5 @@
 import { FullLLMProvider } from "../configuration/llm/interfaces";
-import { Persona, Prompt, StarterMessage } from "./interfaces";
+import { Persona, StarterMessage } from "./interfaces";
 
 interface PersonaCreationRequest {
   name: string;
@@ -21,6 +21,9 @@ interface PersonaCreationRequest {
   icon_shape: number | null;
   remove_image?: boolean;
   uploaded_image: File | null;
+  search_start_date: Date | null;
+  is_default_persona: boolean;
+  category_id: number | null;
 }
 
 interface PersonaUpdateRequest {
@@ -45,6 +48,8 @@ interface PersonaUpdateRequest {
   icon_shape: number | null;
   remove_image: boolean;
   uploaded_image: File | null;
+  search_start_date: Date | null;
+  category_id: number | null;
 }
 
 function promptNameFromPersonaName(personaName: string) {
@@ -105,6 +110,42 @@ function updatePrompt({
   });
 }
 
+export const createPersonaCategory = (name: string, description: string) => {
+  return fetch("/api/admin/persona/categories", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, description }),
+  });
+};
+
+export const deletePersonaCategory = (categoryId: number) => {
+  return fetch(`/api/admin/persona/category/${categoryId}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+};
+
+export const updatePersonaCategory = (
+  id: number,
+  name: string,
+  description: string
+) => {
+  return fetch(`/api/admin/persona/category/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      category_name: name,
+      category_description: description,
+    }),
+  });
+};
+
 function buildPersonaAPIBody(
   creationRequest: PersonaCreationRequest | PersonaUpdateRequest,
   promptId: number,
@@ -123,7 +164,14 @@ function buildPersonaAPIBody(
     icon_color,
     icon_shape,
     remove_image,
+    search_start_date,
+    category_id,
   } = creationRequest;
+
+  const is_default_persona =
+    "is_default_persona" in creationRequest
+      ? creationRequest.is_default_persona
+      : false;
 
   return {
     name,
@@ -145,6 +193,9 @@ function buildPersonaAPIBody(
     icon_shape,
     uploaded_image_id,
     remove_image,
+    search_start_date,
+    is_default_persona,
+    category_id,
   };
 }
 
@@ -208,9 +259,29 @@ export async function updatePersona(
 ): Promise<[Response, Response | null]> {
   const { id, existingPromptId } = personaUpdateRequest;
 
-  // first update prompt
+  let fileId = null;
+  if (personaUpdateRequest.uploaded_image) {
+    fileId = await uploadFile(personaUpdateRequest.uploaded_image);
+    if (!fileId) {
+      return [new Response(null, { status: 400 }), null];
+    }
+  }
+
+  const updatePersonaResponse = await fetch(`/api/persona/${id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(
+      buildPersonaAPIBody(personaUpdateRequest, existingPromptId ?? 0, fileId)
+    ),
+  });
+
+  if (!updatePersonaResponse.ok) {
+    return [updatePersonaResponse, null];
+  }
+
   let promptResponse;
-  let promptId;
   if (existingPromptId !== undefined) {
     promptResponse = await updatePrompt({
       promptId: existingPromptId,
@@ -219,7 +290,6 @@ export async function updatePersona(
       taskPrompt: personaUpdateRequest.task_prompt,
       includeCitations: personaUpdateRequest.include_citations,
     });
-    promptId = existingPromptId;
   } else {
     promptResponse = await createPrompt({
       personaName: personaUpdateRequest.name,
@@ -227,29 +297,7 @@ export async function updatePersona(
       taskPrompt: personaUpdateRequest.task_prompt,
       includeCitations: personaUpdateRequest.include_citations,
     });
-    promptId = promptResponse.ok ? (await promptResponse.json()).id : null;
   }
-
-  let fileId = null;
-  if (personaUpdateRequest.uploaded_image) {
-    fileId = await uploadFile(personaUpdateRequest.uploaded_image);
-    if (!fileId) {
-      return [promptResponse, null];
-    }
-  }
-
-  const updatePersonaResponse =
-    promptResponse.ok && promptId
-      ? await fetch(`/api/persona/${id}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(
-            buildPersonaAPIBody(personaUpdateRequest, promptId, fileId)
-          ),
-        })
-      : null;
 
   return [promptResponse, updatePersonaResponse];
 }
@@ -265,7 +313,7 @@ export function buildFinalPrompt(
   taskPrompt: string,
   retrievalDisabled: boolean
 ) {
-  let queryString = Object.entries({
+  const queryString = Object.entries({
     system_prompt: systemPrompt,
     task_prompt: taskPrompt,
     retrieval_disabled: retrievalDisabled,
@@ -324,7 +372,7 @@ export const togglePersonaVisibility = async (
   personaId: number,
   isVisible: boolean
 ) => {
-  const response = await fetch(`/api/persona/${personaId}/visible`, {
+  const response = await fetch(`/api/admin/persona/${personaId}/visible`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -366,3 +414,26 @@ export function providersContainImageGeneratingSupport(
 ) {
   return providers.some((provider) => provider.provider === "openai");
 }
+
+// Default fallback persona for when we must display a persona
+// but assistant has access to none
+export const defaultPersona: Persona = {
+  id: 0,
+  name: "Default Assistant",
+  description: "A default assistant",
+  is_visible: true,
+  is_public: true,
+  builtin_persona: false,
+  is_default_persona: true,
+  users: [],
+  groups: [],
+  document_sets: [],
+  prompts: [],
+  tools: [],
+  starter_messages: null,
+  display_priority: null,
+  search_start_date: null,
+  owner: null,
+  icon_shape: 50910,
+  icon_color: "#FF6F6F",
+};

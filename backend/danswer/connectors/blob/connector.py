@@ -5,9 +5,9 @@ from io import BytesIO
 from typing import Any
 from typing import Optional
 
-import boto3
-from botocore.client import Config
-from mypy_boto3_s3 import S3Client
+import boto3  # type: ignore
+from botocore.client import Config  # type: ignore
+from mypy_boto3_s3 import S3Client  # type: ignore
 
 from danswer.configs.app_configs import INDEX_BATCH_SIZE
 from danswer.configs.constants import BlobType
@@ -194,8 +194,8 @@ class BlobStorageConnector(LoadConnector, PollConnector):
 
                 try:
                     text = extract_file_text(
-                        name,
                         BytesIO(downloaded_file),
+                        file_name=name,
                         break_on_unprocessable=False,
                     )
                     batch.append(

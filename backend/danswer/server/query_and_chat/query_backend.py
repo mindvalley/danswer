@@ -1,13 +1,21 @@
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import HTTPException
-from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+import json
+from collections.abc import Generator
+from uuid import UUID
 
 from danswer.auth.users import current_curator_or_admin_user
+from danswer.auth.users import current_limited_user
 from danswer.auth.users import current_user
 from danswer.configs.constants import DocumentSource
 from danswer.configs.constants import MessageType
+from danswer.context.search.models import IndexFilters
+from danswer.context.search.models import SearchDoc
+from danswer.context.search.preprocessing.access_filters import (
+    build_access_filters_for_user,
+)
+from danswer.context.search.utils import chunks_or_sections_to_search_docs
+from danswer.danswerbot.slack.handlers.handle_standard_answers import (
+    oneoff_standard_answers,
+)
 from danswer.db.chat import get_chat_messages_by_session
 from danswer.db.chat import get_chat_session_by_id
 from danswer.db.chat import get_chat_sessions_by_user
@@ -18,33 +26,27 @@ from danswer.db.chat import translate_db_search_doc_to_server_search_doc
 from danswer.db.engine import get_session
 from danswer.db.models import User
 from danswer.db.search_settings import get_current_search_settings
-from danswer.db.tag import get_tags_by_value_prefix_for_source_types
+from danswer.db.tag import find_tags
 from danswer.document_index.factory import get_default_document_index
 from danswer.document_index.vespa.index import VespaIndex
 from danswer.one_shot_answer.answer_question import stream_search_answer
 from danswer.one_shot_answer.models import DirectQARequest
-from danswer.search.models import IndexFilters
-from danswer.search.models import SearchDoc
-from danswer.search.preprocessing.access_filters import build_access_filters_for_user
-from danswer.search.utils import chunks_or_sections_to_search_docs
-from danswer.secondary_llm_flows.query_validation import get_query_answerability
-from danswer.secondary_llm_flows.query_validation import stream_query_answerability
 from danswer.server.query_and_chat.models import AdminSearchRequest
 from danswer.server.query_and_chat.models import AdminSearchResponse
 from danswer.server.query_and_chat.models import ChatSessionDetails
 from danswer.server.query_and_chat.models import ChatSessionsResponse
-from danswer.server.query_and_chat.models import QueryValidationResponse
 from danswer.server.query_and_chat.models import SearchSessionDetailResponse
-from danswer.server.query_and_chat.models import SimpleQueryRequest
 from danswer.server.query_and_chat.models import SourceTag
 from danswer.server.query_and_chat.models import TagResponse
 from danswer.server.query_and_chat.token_limit import check_token_rate_limits
 from danswer.utils.logger import setup_logger
-from danswer.danswerbot.slack.handlers.handle_standard_answers import (
-    oneoff_standard_answers,
-)
 from ee.danswer.server.query_and_chat.models import StandardAnswerRequest
 from ee.danswer.server.query_and_chat.models import StandardAnswerResponse
+from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
+from sqlalchemy.orm import Session
 
 logger = setup_logger()
 
@@ -104,12 +106,25 @@ def get_tags(
     if not allow_prefix:
         raise NotImplementedError("Cannot disable prefix match for now")
 
-    db_tags = get_tags_by_value_prefix_for_source_types(
-        tag_key_prefix=match_pattern,
-        tag_value_prefix=match_pattern,
+    key_prefix = match_pattern
+    value_prefix = match_pattern
+    require_both_to_match = False
+
+    # split on = to allow the user to type in "author=bob"
+    EQUAL_PAT = "="
+    if match_pattern and EQUAL_PAT in match_pattern:
+        split_pattern = match_pattern.split(EQUAL_PAT)
+        key_prefix = split_pattern[0]
+        value_prefix = EQUAL_PAT.join(split_pattern[1:])
+        require_both_to_match = True
+
+    db_tags = find_tags(
+        tag_key_prefix=key_prefix,
+        tag_value_prefix=value_prefix,
         sources=sources,
         limit=limit,
         db_session=db_session,
+        require_both_to_match=require_both_to_match,
     )
     server_tags = [
         SourceTag(
@@ -118,18 +133,6 @@ def get_tags(
         for db_tag in db_tags
     ]
     return TagResponse(tags=server_tags)
-
-
-@basic_router.post("/query-validation")
-def query_validation(
-    simple_query: SimpleQueryRequest, _: User = Depends(current_user)
-) -> QueryValidationResponse:
-    # Note if weak model prompt is chosen, this check does not occur and will simply return that
-    # the query is valid, this is because weaker models cannot really handle this task well.
-    # Additionally, some weak model servers cannot handle concurrent inferences.
-    logger.notice(f"Validating query: {simple_query.query}")
-    reasoning, answerable = get_query_answerability(simple_query.query)
-    return QueryValidationResponse(reasoning=reasoning, answerable=answerable)
 
 
 @basic_router.get("/user-searches")
@@ -178,7 +181,7 @@ def get_user_search_sessions(
 
 @basic_router.get("/search-session/{session_id}")
 def get_search_session(
-    session_id: int,
+    session_id: UUID,
     is_shared: bool = False,
     user: User | None = Depends(current_user),
     db_session: Session = Depends(get_session),
@@ -232,52 +235,27 @@ def get_search_session(
     return response
 
 
-# NOTE No longer used, after search/chat redesign.
-# No search responses are answered with a conversational generative AI response
-@basic_router.post("/stream-query-validation")
-def stream_query_validation(
-    simple_query: SimpleQueryRequest, _: User = Depends(current_user)
-) -> StreamingResponse:
-    # Note if weak model prompt is chosen, this check does not occur and will simply return that
-    # the query is valid, this is because weaker models cannot really handle this task well.
-    # Additionally, some weak model servers cannot handle concurrent inferences.
-    logger.notice(f"Validating query: {simple_query.query}")
-    return StreamingResponse(
-        stream_query_answerability(simple_query.query), media_type="application/json"
-    )
-
-
 @basic_router.post("/stream-answer-with-quote")
 def get_answer_with_quote(
     query_request: DirectQARequest,
-    user: User = Depends(current_user),
+    user: User = Depends(current_limited_user),
     _: None = Depends(check_token_rate_limits),
 ) -> StreamingResponse:
     query = query_request.messages[0].message
 
     logger.notice(f"Received query for one shot answer with quotes: {query}")
 
-    packets = stream_search_answer(
-        query_req=query_request,
-        user=user,
-        max_document_tokens=None,
-        max_history_tokens=0,
-    )
-    return StreamingResponse(packets, media_type="application/json")
+    def stream_generator() -> Generator[str, None, None]:
+        try:
+            for packet in stream_search_answer(
+                query_req=query_request,
+                user=user,
+                max_document_tokens=None,
+                max_history_tokens=0,
+            ):
+                yield json.dumps(packet) if isinstance(packet, dict) else packet
+        except Exception as e:
+            logger.exception("Error in search answer streaming")
+            yield json.dumps({"error": str(e)})
 
-@basic_router.get("/standard-answer")
-def get_standard_answer(
-    request: StandardAnswerRequest,
-    db_session: Session = Depends(get_session),
-    _: User | None = Depends(current_user),
-) -> StandardAnswerResponse:
-    try:
-        standard_answers = oneoff_standard_answers(
-            message=request.message,
-            slack_bot_categories=request.slack_bot_categories,
-            db_session=db_session,
-        )
-        return StandardAnswerResponse(standard_answers=standard_answers)
-    except Exception as e:
-        logger.error(f"Error in get_standard_answer: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="An internal server error occurred")
+    return StreamingResponse(stream_generator(), media_type="application/json")

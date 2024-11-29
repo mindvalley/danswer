@@ -3,16 +3,16 @@ import random
 import re
 import string
 import time
+import uuid
 from typing import Any
 from typing import cast
-from typing import Optional
 
 from retry import retry
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from slack_sdk.models.blocks import Block
 from slack_sdk.models.metadata import Metadata
-from sqlalchemy.orm import Session
+from slack_sdk.socket_mode import SocketModeClient
 
 from danswer.configs.app_configs import DISABLE_TELEMETRY
 from danswer.configs.constants import ID_SEPARATOR
@@ -30,8 +30,7 @@ from danswer.configs.danswerbot_configs import (
 from danswer.connectors.slack.utils import make_slack_api_rate_limited
 from danswer.connectors.slack.utils import SlackTextCleaner
 from danswer.danswerbot.slack.constants import FeedbackVisibility
-from danswer.danswerbot.slack.tokens import fetch_tokens
-from danswer.db.engine import get_sqlalchemy_engine
+from danswer.db.engine import get_session_with_tenant
 from danswer.db.users import get_user_by_email
 from danswer.llm.exceptions import GenAIDisabledException
 from danswer.llm.factory import get_default_llms
@@ -47,16 +46,16 @@ from danswer.utils.text_processing import replace_whitespaces_w_space
 logger = setup_logger()
 
 
-_DANSWER_BOT_APP_ID: str | None = None
+_DANSWER_BOT_SLACK_BOT_ID: str | None = None
 _DANSWER_BOT_MESSAGE_COUNT: int = 0
 _DANSWER_BOT_COUNT_START_TIME: float = time.time()
 
 
-def get_danswer_bot_app_id(web_client: WebClient) -> Any:
-    global _DANSWER_BOT_APP_ID
-    if _DANSWER_BOT_APP_ID is None:
-        _DANSWER_BOT_APP_ID = web_client.auth_test().get("user_id")
-    return _DANSWER_BOT_APP_ID
+def get_danswer_bot_slack_bot_id(web_client: WebClient) -> Any:
+    global _DANSWER_BOT_SLACK_BOT_ID
+    if _DANSWER_BOT_SLACK_BOT_ID is None:
+        _DANSWER_BOT_SLACK_BOT_ID = web_client.auth_test().get("user_id")
+    return _DANSWER_BOT_SLACK_BOT_ID
 
 
 def check_message_limit() -> bool:
@@ -137,13 +136,8 @@ def update_emote_react(
 
 
 def remove_danswer_bot_tag(message_str: str, client: WebClient) -> str:
-    bot_tag_id = get_danswer_bot_app_id(web_client=client)
+    bot_tag_id = get_danswer_bot_slack_bot_id(web_client=client)
     return re.sub(rf"<@{bot_tag_id}>\s", "", message_str)
-
-
-def get_web_client() -> WebClient:
-    slack_tokens = fetch_tokens()
-    return WebClient(token=slack_tokens.bot_token)
 
 
 @retry(
@@ -220,6 +214,13 @@ def build_feedback_id(
         feedback_id = str(message_id)
 
     return unique_prefix + ID_SEPARATOR + feedback_id
+
+
+def build_continue_in_web_ui_id(
+    message_id: int,
+) -> str:
+    unique_prefix = str(uuid.uuid4())[:10]
+    return unique_prefix + ID_SEPARATOR + str(message_id)
 
 
 def decompose_action_id(feedback_id: str) -> tuple[int, str | None, int | None]:
@@ -319,7 +320,7 @@ def get_channel_name_from_id(
         raise e
 
 
-def fetch_user_ids_from_emails(
+def fetch_slack_user_ids_from_emails(
     user_emails: list[str], client: WebClient
 ) -> tuple[list[str], list[str]]:
     user_ids: list[str] = []
@@ -430,35 +431,58 @@ def read_slack_thread(
     replies = cast(dict, response.data).get("messages", [])
     for reply in replies:
         if "user" in reply and "bot_id" not in reply:
-            message = remove_danswer_bot_tag(reply["text"], client=client)
-            user_sem_id = fetch_user_semantic_id_from_id(reply["user"], client)
+            message = reply["text"]
+            user_sem_id = (
+                fetch_user_semantic_id_from_id(reply.get("user"), client)
+                or "Unknown User"
+            )
             message_type = MessageType.USER
         else:
-            self_app_id = get_danswer_bot_app_id(client)
+            self_slack_bot_id = get_danswer_bot_slack_bot_id(client)
 
-            # Only include bot messages from Danswer, other bots are not taken in as context
-            if self_app_id != reply.get("user"):
-                continue
+            if reply.get("user") == self_slack_bot_id:
+                # DanswerBot response
+                message_type = MessageType.ASSISTANT
+                user_sem_id = "Assistant"
 
-            blocks = reply["blocks"]
-            if len(blocks) <= 1:
-                continue
-
-            # For the old flow, the useful block is the second one after the header block that says AI Answer
-            if reply["blocks"][0]["text"]["text"] == "AI Answer":
-                message = reply["blocks"][1]["text"]["text"]
-            else:
-                # for the new flow, the answer is the first block
-                message = reply["blocks"][0]["text"]["text"]
-
-            if message.startswith("_Filters"):
-                if len(blocks) <= 2:
+                # DanswerBot responses have both text and blocks
+                # The useful content is in the blocks, specifically the first block unless there are
+                # auto-detected filters
+                blocks = reply.get("blocks")
+                if not blocks:
+                    logger.warning(f"DanswerBot response has no blocks: {reply}")
                     continue
-                message = reply["blocks"][2]["text"]["text"]
 
-            user_sem_id = "Assistant"
-            message_type = MessageType.ASSISTANT
+                message = blocks[0].get("text", {}).get("text")
 
+                # If auto-detected filters are on, use the second block for the actual answer
+                # The first block is the auto-detected filters
+                if message.startswith("_Filters"):
+                    if len(blocks) < 2:
+                        logger.warning(f"Only filter blocks found: {reply}")
+                        continue
+                    # This is the DanswerBot answer format, if there is a change to how we respond,
+                    # this will need to be updated to get the correct "answer" portion
+                    message = reply["blocks"][1].get("text", {}).get("text")
+            else:
+                # Other bots are not counted as the LLM response which only comes from Danswer
+                message_type = MessageType.USER
+                bot_user_name = fetch_user_semantic_id_from_id(
+                    reply.get("user"), client
+                )
+                user_sem_id = bot_user_name or "Unknown" + " Bot"
+
+                # For other bots, just use the text as we have no way of knowing that the
+                # useful portion is
+                message = reply.get("text")
+                if not message:
+                    message = blocks[0].get("text", {}).get("text")
+
+            if not message:
+                logger.warning("Skipping Slack thread message, no text found")
+                continue
+
+        message = remove_danswer_bot_tag(message, client=client)
         thread_messages.append(
             ThreadMessage(message=message, sender=user_sem_id, role=message_type)
         )
@@ -466,7 +490,9 @@ def read_slack_thread(
     return thread_messages
 
 
-def slack_usage_report(action: str, sender_id: str | None, client: WebClient) -> None:
+def slack_usage_report(
+    action: str, sender_id: str | None, client: WebClient, tenant_id: str | None
+) -> None:
     if DISABLE_TELEMETRY:
         return
 
@@ -478,7 +504,7 @@ def slack_usage_report(action: str, sender_id: str | None, client: WebClient) ->
         logger.warning("Unable to find sender email")
 
     if sender_email is not None:
-        with Session(get_sqlalchemy_engine()) as db_session:
+        with get_session_with_tenant(tenant_id) as db_session:
             danswer_user = get_user_by_email(email=sender_email, db_session=db_session)
 
     optional_telemetry(
@@ -503,7 +529,7 @@ class SlackRateLimiter:
             self.last_reset_time = time.time()
 
     def notify(
-        self, client: WebClient, channel: str, position: int, thread_ts: Optional[str]
+        self, client: WebClient, channel: str, position: int, thread_ts: str | None
     ) -> None:
         respond_in_thread(
             client=client,
@@ -554,3 +580,12 @@ def get_feedback_visibility() -> FeedbackVisibility:
         return FeedbackVisibility(DANSWER_BOT_FEEDBACK_VISIBILITY.lower())
     except ValueError:
         return FeedbackVisibility.PRIVATE
+
+
+class TenantSocketModeClient(SocketModeClient):
+    def __init__(
+        self, tenant_id: str | None, slack_bot_id: int, *args: Any, **kwargs: Any
+    ):
+        super().__init__(*args, **kwargs)
+        self.tenant_id = tenant_id
+        self.slack_bot_id = slack_bot_id

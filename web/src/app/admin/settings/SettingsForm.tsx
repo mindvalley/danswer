@@ -2,38 +2,37 @@
 
 import { Label, SubLabel } from "@/components/admin/connectors/Field";
 import { usePopup } from "@/components/admin/connectors/Popup";
-import { Title } from "@tremor/react";
+import Title from "@/components/ui/title";
+import { Button } from "@/components/ui/button";
 import { Settings } from "./interfaces";
 import { useRouter } from "next/navigation";
 import { DefaultDropdown, Option } from "@/components/Dropdown";
-import { useContext } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { SettingsContext } from "@/components/settings/SettingsProvider";
-import React, { useState, useEffect } from "react";
 import { usePaidEnterpriseFeaturesEnabled } from "@/components/settings/usePaidEnterpriseFeaturesEnabled";
-import { Button } from "@tremor/react";
 
-function Checkbox({
+export function Checkbox({
   label,
   sublabel,
   checked,
   onChange,
 }: {
   label: string;
-  sublabel: string;
+  sublabel?: string;
   checked: boolean;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
-    <label className="flex text-sm mb-4">
+    <label className="flex text-sm cursor-pointer">
       <input
         checked={checked}
         onChange={onChange}
         type="checkbox"
-        className="mx-3 px-5 w-3.5 h-3.5 my-auto"
+        className="mr-2 w-3.5 h-3.5 my-auto"
       />
       <div>
         <Label>{label}</Label>
-        <SubLabel>{sublabel}</SubLabel>
+        {sublabel && <SubLabel>{sublabel}</SubLabel>}
       </div>
     </label>
   );
@@ -273,13 +272,17 @@ export function SettingsForm() {
           />
           <Button
             onClick={handleSetChatRetention}
-            color="green"
-            size="xs"
+            variant="submit"
+            size="sm"
             className="mr-3"
           >
             Set Retention Limit
           </Button>
-          <Button onClick={handleClearChatRetention} color="blue" size="xs">
+          <Button
+            onClick={handleClearChatRetention}
+            variant="default"
+            size="sm"
+          >
             Retain All
           </Button>
         </>
